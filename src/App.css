@@ -4112,7 +4112,17 @@ textarea:-webkit-autofill:focus {
     }
 }
 
+.host-booking-statusN.verified,
+.admin-property-statusN.verified {
+    background-color: #FFB200;
+    color: #24221B;
+}
 
+.host-booking-statusN.active,
+.admin-property-statusN.active {
+    background-color: #FFB200;
+    color: #24221B;
+}
 
 
 

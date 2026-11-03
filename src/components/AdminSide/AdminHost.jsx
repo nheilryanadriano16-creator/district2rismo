@@ -1,22 +1,52 @@
-import { useState } from 'react'
-
-const hosts = [
-    { name: 'Gian Manalaysay', email: 'gian@gmail.com', status: 'Verified' },
-    { name: 'Ron Roberto', email: 'ronroberto@gmail.com', status: 'Unverified' },
-]
+import { useState, useEffect } from 'react'
+import { collection, getDocs } from 'firebase/firestore'
+import { db } from '../../firebase'
 
 const filters = ['All', 'Verified', 'Unverified']
 
 export function AdminHost({ onViewDetails }) {
+    const [hosts, setHosts] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [errorMsg, setErrorMsg] = useState(null)
     const [activeFilter, setActiveFilter] = useState('All')
     const [search, setSearch] = useState('')
 
+    useEffect(() => {
+        const fetchHosts = async () => {
+            try {
+                setLoading(true)
+                const querySnapshot = await getDocs(collection(db, 'users'))
+
+                const hostList = querySnapshot.docs
+                    .map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }))
+                    .filter(user => user.role === 'host')
+
+                console.log("Fetched host list from users:", hostList)
+                setHosts(hostList)
+            } catch (err) {
+                console.error('Error fetching hosts from Firestore:', err)
+                setErrorMsg(err.message)
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchHosts()
+    }, [])
+
     const filteredHosts = hosts.filter((host) => {
-        const matchesFilter = activeFilter === 'All' || host.status === activeFilter
+        const displayName = host?.firstName && host?.lastName
+            ? `${host.firstName} ${host.lastName}`
+            : host?.name || host?.email || '';
+        const hostStatus = host?.status || 'Verified';
+
+        const matchesFilter = activeFilter === 'All' || hostStatus === activeFilter
         const query = search.trim().toLowerCase()
         const matchesSearch =
-            host.name.toLowerCase().includes(query) ||
-            host.email.toLowerCase().includes(query)
+            displayName.toLowerCase().includes(query) ||
+            (host?.email && host.email.toLowerCase().includes(query))
 
         return matchesFilter && matchesSearch
     })
@@ -59,47 +89,63 @@ export function AdminHost({ onViewDetails }) {
                 </div>
             </div>
 
-            <p className="small mb-2">5,000 Hosts</p>
+            <p className="small mb-2 text-white">{filteredHosts.length} Hosts</p>
 
-            <div className="d-flex flex-column gap-2">
-                {filteredHosts.map((host) => (
-                    <article
-                        className="admin-host-rowN row align-items-center g-2 rounded-3 p-2"
-                        key={host.email}
-                    >
-                        <div className="col-auto">
-                            <span className="admin-host-avatarN rounded-circle d-flex align-items-center justify-content-center">
-                                {host.name.charAt(0)}
-                            </span>
-                        </div>
+            {loading ? (
+                <p className="text-white text-center py-4">Loading hosts from database...</p>
+            ) : errorMsg ? (
+                <p className="text-danger text-center py-4">Error loading hosts: {errorMsg}</p>
+            ) : (
+                <div className="d-flex flex-column gap-2">
+                    {filteredHosts.map((host) => {
+                        const displayName = host?.firstName && host?.lastName
+                            ? `${host.firstName} ${host.lastName}`
+                            : host?.name || (host?.email ? host.email.split('@')[0] : 'Host');
+                        const hostStatus = host?.status || 'Verified';
 
-                        <div className="col">
-                            <h2 className="h6 mb-0">{host.name}</h2>
-                            <p className="small text-warning mb-0">{host.email}</p>
-                        </div>
-
-                        <div className="col-12 col-sm-auto col-md-3 text-sm-center">
-                            <span className={`badge rounded-pill admin-host-statusN ${host.status === 'Unverified' ? 'unverified' : ''}`}>
-                                {host.status}
-                            </span>
-                        </div>
-
-                        <div className="col-12 col-sm-auto text-sm-end">
-                            <button
-                                type="button"
-                                className="btn admin-host-detailsN"
-                                onClick={() => onViewDetails?.(host)}
+                        return (
+                            <article
+                                className="admin-host-rowN row align-items-center g-2 rounded-3 p-2"
+                                key={host.id}
                             >
-                                View Details
-                            </button>
-                        </div>
-                    </article>
-                ))}
+                                <div className="col-auto">
+                                    <span className="admin-host-avatarN rounded-circle d-flex align-items-center justify-content-center">
+                                        {displayName.charAt(0).toUpperCase()}
+                                    </span>
+                                </div>
 
-                {filteredHosts.length === 0 && (
-                    <p className="text-center py-4 mb-0">No hosts match your search.</p>
-                )}
-            </div>
+                                <div className="col">
+                                    <h2 className="h6 mb-0 text-white">{displayName}</h2>
+                                    <p className="small text-warning mb-0">{host?.email || '—'}</p>
+                                </div>
+
+                                <div className="col-12 col-sm-auto col-md-3 text-sm-center">
+                                    <span
+                                        className={`badge rounded-pill admin-property-statusN ${hostStatus === 'Verified' ? 'verified' : ''
+                                            }`}
+                                    >
+                                        {hostStatus}
+                                    </span>
+                                </div>
+
+                                <div className="col-12 col-sm-auto text-sm-end">
+                                    <button
+                                        type="button"
+                                        className="btn admin-host-detailsN"
+                                        onClick={() => onViewDetails?.(host)}
+                                    >
+                                        View Details
+                                    </button>
+                                </div>
+                            </article>
+                        )
+                    })}
+
+                    {filteredHosts.length === 0 && (
+                        <p className="text-white text-center py-4 mb-0">No hosts found with role 'host'.</p>
+                    )}
+                </div>
+            )}
         </section>
     )
 }

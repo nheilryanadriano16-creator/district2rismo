@@ -7,43 +7,71 @@ export function AdminPropertyDetails({
     onReject,
     onApprove,
 }) {
+    if (!property) {
+        return (
+            <section className="admin-property-detailsN container-fluid p-3 p-md-4 text-white">
+                <p>No property selected.</p>
+                <button
+                    type="button"
+                    className="btn btn-outline-light btn-sm"
+                    onClick={onBack}
+                >
+                    Back to Properties
+                </button>
+            </section>
+        )
+    }
+
+    const displayOwner = property.firstName && property.lastName
+        ? `${property.firstName} ${property.lastName}`
+        : property.owner || property.ownerName || 'Unknown Owner'
+
+    const displayStatus = property.status || 'Pending'
+    const propertyImage = property.image || property.imageUrl || (property.images && property.images[0]) || resortImage
+
+    const statusLower = displayStatus.toLowerCase()
+    const statusClass = statusLower === 'pending' 
+        ? 'pending' 
+        : statusLower === 'approved' || statusLower === 'active' 
+            ? 'verified' 
+            : ''
+
     return (
         <section className="admin-property-detailsN container-fluid p-3 p-md-4">
-            <nav aria-label="breadcrumb" className="mb-3">
-                <ol className="breadcrumb small mb-0">
-                    <li className="breadcrumb-item">
-                        <button
-                            type="button"
-                            className="admin-property-backN"
-                            onClick={onBack}
-                        >
-                            Properties
-                        </button>
-                    </li>
-                    <li className="breadcrumb-item active" aria-current="page">
-                        Property Details
-                    </li>
-                </ol>
-            </nav>
+            {/* Custom Breadcrumb matching Users > User Details style */}
+            <div className="d-flex align-items-center gap-2 fs-5 mb-3">
+                <button
+                    type="button"
+                    className="admin-property-backN btn btn-link p-0 text-decoration-none text-white fs-5 fw-normal"
+                    onClick={onBack}
+                >
+                    Properties
+                </button>
+                <span className="text-white opacity-75 fs-6">&gt;</span>
+                <span className="fs-5 fw-normal text-warning" style={{ color: '#FFB200' }}>
+                    Property Details
+                </span>
+            </div>
 
-            <header className="card admin-property-detail-headerN border-0 p-3 p-md-4 mb-3">
+            <header className="card admin-property-detail-headerN border-0 p-3 p-md-4 mb-3 bg-dark text-white">
                 <div className="row align-items-center g-3">
                     <div className="col-auto">
                         <img
                             className="admin-property-detail-imageN rounded-2"
-                            src={property.image || resortImage}
+                            src={propertyImage}
                             alt=""
+                            style={{ width: '100px', height: '80px', objectFit: 'cover' }}
                         />
                     </div>
                     <div className="col">
-                        <h1 className="h2 mb-0">{property.name}</h1>
+                        <h1 className="h2 mb-0 text-white">{property.name || 'Unnamed Property'}</h1>
                         <p className="text-warning mb-0">
-                            Listed By: {property.owner}
+                            Listed By: {displayOwner}
                         </p>
                     </div>
                     <div className="col-12 col-md-auto">
-                        <span className="badge rounded-pill admin-property-detail-statusN">
-                            {property.status}
+                        <span className={`badge rounded-pill admin-property-detail-statusN ${statusClass}`}>
+                            {displayStatus}
                         </span>
                     </div>
                 </div>
@@ -51,7 +79,12 @@ export function AdminPropertyDetails({
 
             <HostAddProperty
                 mode="review"
-                property={property}
+                property={{
+                    ...property,
+                    owner: displayOwner,
+                    status: displayStatus,
+                    image: propertyImage
+                }}
                 onBack={onBack}
                 onReject={() => onReject?.(property)}
                 onApprove={() => onApprove?.(property)}

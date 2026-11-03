@@ -1,4 +1,9 @@
-﻿function formatDate(date) {
+﻿import { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
+
+function formatDate(date) {
     if (!date) return '\u2014'
     return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
         month: 'short',
@@ -16,7 +21,52 @@ function DetailRow({ label, value, highlight = false }) {
     )
 }
 
-export function AdminReservationDetails({ booking, onBack }) {
+export function AdminReservationDetails({ booking: initialBooking, onBack }) {
+    const { id: routeId } = useParams()
+    const bookingId = initialBooking?.id || routeId
+
+    const [booking, setBooking] = useState(initialBooking || null)
+    const [loading, setLoading] = useState(!initialBooking)
+
+    useEffect(() => {
+        if (!initialBooking && bookingId) {
+            async function fetchBooking() {
+                try {
+                    setLoading(true)
+                    const docRef = doc(db, 'reservations', bookingId)
+                    const docSnap = await getDoc(docRef)
+                    if (docSnap.exists()) {
+                        setBooking({ id: docSnap.id, ...docSnap.data() })
+                    }
+                } catch (err) {
+                    console.error('Error fetching reservation details:', err)
+                } finally {
+                    setLoading(false)
+                }
+            }
+            fetchBooking()
+        }
+    }, [bookingId, initialBooking])
+
+    if (loading) {
+        return (
+            <section className="container-fluid p-3 p-md-4 text-white text-center">
+                <p>Loading reservation details...</p>
+            </section>
+        )
+    }
+
+    if (!booking) {
+        return (
+            <section className="container-fluid p-3 p-md-4 text-white">
+                <p>Reservation not found.</p>
+                <button type="button" className="btn btn-outline-light btn-sm" onClick={onBack}>
+                    Back to Reservations
+                </button>
+            </section>
+        )
+    }
+
     const reservationNumber = booking.reservationNumber || booking.id?.replace(/^.*?(\d+)$/, '$1') || '00001'
     const duration = booking.duration ?? (
         booking.startDate && booking.endDate
@@ -27,13 +77,22 @@ export function AdminReservationDetails({ booking, onBack }) {
     return (
         <section className="container-fluid p-3 p-md-4 admin-reservation-detailN">
             <nav aria-label="Breadcrumb" className="mb-3">
-                <ol className="breadcrumb small mb-0">
+                <ol className="breadcrumb small mb-0 align-items-center">
                     <li className="breadcrumb-item">
-                        <button type="button" className="btn btn-link p-0 text-light text-decoration-none" onClick={onBack}>
-                            Reservation
+                        <button 
+                            type="button" 
+                            className="btn btn-link p-0 text-white text-decoration-none shadow-none" 
+                            onClick={onBack}
+                        >
+                            Reservations
                         </button>
                     </li>
-                    <li className="breadcrumb-item active text-warning" aria-current="page">Reservation Details</li>
+                    <li 
+                        className="breadcrumb-item active text-warning" 
+                        aria-current="page"
+                    >
+                        Reservation Details
+                    </li>
                 </ol>
             </nav>
 

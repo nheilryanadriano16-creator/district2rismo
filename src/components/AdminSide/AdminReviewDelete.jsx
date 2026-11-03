@@ -1,5 +1,7 @@
 ﻿import { useState } from 'react'
 import Modal from 'react-bootstrap/Modal'
+import { doc, deleteDoc, updateDoc, Timestamp } from 'firebase/firestore'
+import { db } from '../../firebase'
 
 const deletionReasons = [
     'Spam or advertising',
@@ -10,16 +12,32 @@ const deletionReasons = [
 
 export function AdminReviewDelete({ show, review, onHide, onConfirm }) {
     const [reason, setReason] = useState('')
+    const [submitting, setSubmitting] = useState(false)
 
     const closeModal = () => {
         setReason('')
+        setSubmitting(false)
         onHide()
     }
 
-    const handleSubmit = (event) => {
+    const handleSubmit = async (event) => {
         event.preventDefault()
-        onConfirm?.({ review, reason })
-        closeModal()
+        if (!review?.id) return
+
+        try {
+            setSubmitting(true)
+            
+            // Delete the review document from Firestore
+            await deleteDoc(doc(db, 'reviews', review.id))
+
+            // Pass confirmation back up if parent callback exists
+            onConfirm?.({ review, reason })
+            closeModal()
+        } catch (err) {
+            console.error('Error deleting review from Firestore:', err)
+        } finally {
+            setSubmitting(false)
+        }
     }
 
     return (
@@ -31,7 +49,7 @@ export function AdminReviewDelete({ show, review, onHide, onConfirm }) {
             contentClassName="admin-suspend-modalN"
             aria-labelledby="admin-review-delete-title"
         >
-            <button type="button" className="admin-suspend-closeN" aria-label="Close" onClick={closeModal}>
+            <button type="button" className="admin-suspend-closeN" aria-label="Close" onClick={closeModal} disabled={submitting}>
                 <i className="bi bi-x-lg" aria-hidden="true" />
             </button>
             <form onSubmit={handleSubmit}>
@@ -47,13 +65,16 @@ export function AdminReviewDelete({ show, review, onHide, onConfirm }) {
                         value={reason}
                         onChange={(event) => setReason(event.target.value)}
                         required
+                        disabled={submitting}
                     >
                         <option value="" disabled>Select Reason</option>
                         {deletionReasons.map((item) => <option key={item} value={item}>{item}</option>)}
                     </select>
                     <div className="d-flex flex-column flex-sm-row justify-content-center gap-2">
-                        <button type="button" className="btn admin-suspend-cancelN" onClick={closeModal}>Cancel</button>
-                        <button type="submit" className="btn admin-suspend-confirmN">Delete Comment</button>
+                        <button type="button" className="btn admin-suspend-cancelN" onClick={closeModal} disabled={submitting}>Cancel</button>
+                        <button type="submit" className="btn admin-suspend-confirmN" disabled={submitting}>
+                            {submitting ? 'Deleting...' : 'Delete Comment'}
+                        </button>
                     </div>
                 </Modal.Body>
             </form>

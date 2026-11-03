@@ -1,4 +1,7 @@
-﻿import { useState } from 'react'
+﻿import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { doc, getDoc, deleteDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 import { AdminReviewDelete } from './AdminReviewDelete.jsx'
 
 function formatDate(date) {
@@ -42,16 +45,77 @@ function ReviewRow({ label, children }) {
     )
 }
 
-export function AdminReviewDetails({ review, onBack, onDelete }) {
+export function AdminReviewDetails({ review: initialReview, onBack, onDelete, preview = false }) {
+    const { id: routeId } = useParams()
+    const reviewId = initialReview?.id || routeId
+
+    const [review, setReview] = useState(initialReview || null)
+    const [loading, setLoading] = useState(!initialReview)
     const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const navigate = useNavigate()
+
+    useEffect(() => {
+        if (!initialReview && reviewId) {
+            async function fetchReview() {
+                try {
+                    setLoading(true)
+                    const docRef = doc(db, 'reviews', reviewId)
+                    const docSnap = await getDoc(docRef)
+                    if (docSnap.exists()) {
+                        setReview({ id: docSnap.id, ...docSnap.data() })
+                    }
+                } catch (err) {
+                    console.error('Error fetching review details:', err)
+                } finally {
+                    setLoading(false)
+                }
+            }
+            fetchReview()
+        }
+    }, [reviewId, initialReview])
+
+    const handleDeleteConfirm = async (data) => {
+        try {
+            if (reviewId) {
+                await deleteDoc(doc(db, 'reviews', reviewId))
+            }
+            if (onDelete) {
+                onDelete(data)
+            } else {
+                navigate(preview ? '/admin-preview/reviews' : '/admin/reviews')
+            }
+        } catch (err) {
+            console.error('Error deleting review:', err)
+        }
+    }
+
+    if (loading) {
+        return (
+            <section className="container-fluid p-3 p-md-4 text-white text-center">
+                <p>Loading review details...</p>
+            </section>
+        )
+    }
+
+    if (!review) {
+        return (
+            <section className="container-fluid p-3 p-md-4 text-white">
+                <p>Review not found.</p>
+                <button type="button" className="btn btn-outline-light btn-sm" onClick={onBack}>
+                    Back to Reviews
+                </button>
+            </section>
+        )
+    }
+
     const breakdown = review.breakdown || {}
 
     return (
         <section className="container-fluid p-3 p-md-4 admin-review-detailN">
             <nav aria-label="Breadcrumb" className="mb-3">
-                <ol className="breadcrumb small mb-0">
+                <ol className="breadcrumb small mb-0 align-items-center">
                     <li className="breadcrumb-item">
-                        <button type="button" className="btn btn-link p-0 text-light text-decoration-none" onClick={onBack}>Reviews</button>
+                        <button type="button" className="btn btn-link p-0 text-white text-decoration-none shadow-none" onClick={onBack}>Reviews</button>
                     </li>
                     <li className="breadcrumb-item active text-warning" aria-current="page">Review Details</li>
                 </ol>
@@ -104,12 +168,7 @@ export function AdminReviewDetails({ review, onBack, onDelete }) {
             <div className="d-flex flex-wrap justify-content-end gap-3">
                 <button type="button" className="btn btn-warning rounded-pill admin-user-account-buttonN" onClick={() => setShowDeleteModal(true)}>Delete Comment</button>
             </div>
-        <AdminReviewDelete show={showDeleteModal} review={review} onHide={() => setShowDeleteModal(false)} onConfirm={onDelete} />
+            <AdminReviewDelete show={showDeleteModal} review={review} onHide={() => setShowDeleteModal(false)} onConfirm={handleDeleteConfirm} />
         </section>
     )
 }
-
-
-
-
-

@@ -1,46 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-
-const bookings = [
-    {
-        id: '2R-001',
-        guest: 'Mi Massalang',
-        phone: '0994 951 7001',
-        email: 'mjmassalang11@gmail.com',
-        reservationNumber: '00001',
-        guestCount: 3,
-        duration: 3,
-        totalAmount: '\u20B112,500',
-        amountPaid: '\u20B112,500',
-        remainingBalance: '\u20B10',
-        paymentDate: '2026-10-24',
-        paymentMethod: 'Reservation #GWR-00001',
-        property: "Fabian's Azzure",
-        startDate: '2026-10-24',
-        endDate: '2026-10-26',
-        status: 'Confirmed',
-    },
-    {
-        id: '2R-002',
-        guest: 'Mj Massalang',
-        property: 'Sirena Resort',
-        startDate: '2026-10-25',
-        endDate: '2026-10-27',
-        status: 'Paid (Full Payment)',
-    },
-    {
-        id: '2R-003',
-        guest: 'Mj Massalang',
-        property: 'Centro Digos Private Resort',
-        startDate: '2026-10-25',
-        endDate: '2026-10-27',
-        status: 'Pending',
-    },
-]
+import { collection, getDocs } from 'firebase/firestore'
+import { db } from '../../firebase'
 
 const filters = ['All', 'Paid', 'Pending']
 
 function formatDate(date) {
+    if (!date) return '—'
     return new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -49,20 +15,41 @@ function formatDate(date) {
 }
 
 export function AdminReservation({ preview = false }) {
+    const [bookings, setBookings] = useState([])
+    const [loading, setLoading] = useState(true)
     const [activeFilter, setActiveFilter] = useState('All')
     const [selectedProperty, setSelectedProperty] = useState('')
     const [search, setSearch] = useState('')
     const [selectedDate, setSelectedDate] = useState('')
     const navigate = useNavigate()
 
-    const properties = [...new Set(bookings.map((booking) => booking.property))]
+    useEffect(() => {
+        async function fetchReservations() {
+            try {
+                setLoading(true)
+                const querySnapshot = await getDocs(collection(db, 'reservations'))
+                const loadedBookings = querySnapshot.docs.map(docItem => ({
+                    id: docItem.id,
+                    ...docItem.data()
+                }))
+                setBookings(loadedBookings)
+            } catch (err) {
+                console.error('Error fetching reservations:', err)
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchReservations()
+    }, [])
+
+    const properties = [...new Set(bookings.map((booking) => booking.property).filter(Boolean))]
 
     const filteredBookings = bookings.filter((booking) => {
         const matchesFilter =
-            activeFilter === 'All' || booking.status.startsWith(activeFilter)
+            activeFilter === 'All' || (booking.status || '').toLowerCase().includes(activeFilter.toLowerCase())
         const matchesProperty =
             !selectedProperty || booking.property === selectedProperty
-        const matchesSearch = booking.id
+        const matchesSearch = (booking.id || '')
             .toLowerCase()
             .includes(search.trim().toLowerCase())
         const matchesDate = !selectedDate || booking.startDate === selectedDate
@@ -84,7 +71,7 @@ export function AdminReservation({ preview = false }) {
                         value={selectedProperty}
                         onChange={(event) => setSelectedProperty(event.target.value)}
                     >
-                        <option value="">Select Property</option>
+                        <option value="">All Properties</option>
                         {properties.map((property) => (
                             <option key={property} value={property}>
                                 {property}
@@ -149,37 +136,41 @@ export function AdminReservation({ preview = false }) {
             </div>
 
             <div className="table-responsive">
-                <table className="table table-borderless align-middle admin-reservation-tableN">
-                    <thead>
-                        <tr>
-                            <th scope="col">Booking</th>
-                            <th scope="col">Guest</th>
-                            <th scope="col">Property</th>
-                            <th scope="col">Date</th>
-                            <th scope="col">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredBookings.map((booking) => (
-                            <tr key={booking.id}>
-                                <td>
-                                    <button type="button" className="btn btn-link p-0 text-reset" onClick={() => navigate(`${preview ? "/admin-preview" : "/admin"}/reservations/${encodeURIComponent(booking.id)}`, { state: { booking } })}>
-                                        {booking.id}
-                                    </button>
-                                </td>
-                                <td>{booking.guest}</td>
-                                <td>{booking.property}</td>
-                                <td>
-                                    {formatDate(booking.startDate)} -<br />
-                                    {formatDate(booking.endDate)}
-                                </td>
-                                <td>{booking.status}</td>
+                {loading ? (
+                    <p className="text-center py-4">Loading reservations...</p>
+                ) : (
+                    <table className="table table-borderless align-middle admin-reservation-tableN">
+                        <thead>
+                            <tr>
+                                <th scope="col">Booking</th>
+                                <th scope="col">Guest</th>
+                                <th scope="col">Property</th>
+                                <th scope="col">Date</th>
+                                <th scope="col">Status</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {filteredBookings.map((booking) => (
+                                <tr key={booking.id}>
+                                    <td>
+                                        <button type="button" className="btn btn-link p-0 text-reset" onClick={() => navigate(`${preview ? "/admin-preview" : "/admin"}/reservations/${encodeURIComponent(booking.id)}`, { state: { booking } })}>
+                                            {booking.id}
+                                        </button>
+                                    </td>
+                                    <td>{booking.guest}</td>
+                                    <td>{booking.property}</td>
+                                    <td>
+                                        {formatDate(booking.startDate)} -<br />
+                                        {formatDate(booking.endDate)}
+                                    </td>
+                                    <td>{booking.status}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
 
-                {filteredBookings.length === 0 && (
+                {!loading && filteredBookings.length === 0 && (
                     <p className="text-center py-4 mb-0">
                         No reservations match your filters.
                     </p>
@@ -188,5 +179,3 @@ export function AdminReservation({ preview = false }) {
         </section>
     )
 }
-
-

@@ -1,29 +1,86 @@
-import { useState } from 'react'
-
-const bookingStatuses = [
-    { status: 'Confirmed', detail: '10/26/26' },
-    { status: 'Pending', detail: 'Mj Massalang or -' },
-    { status: 'Completed', detail: '10/26/26' },
-    { status: 'Cancelled', detail: 'Mj Massalang or -' },
-]
+import { useState, useEffect } from 'react'
+import { collection, getDocs } from 'firebase/firestore'
+import { db } from '../../firebase'
 
 export function AdminReports() {
+    const [reservations, setReservations] = useState([])
+    const [loading, setLoading] = useState(true)
     const [property, setProperty] = useState('')
-    const [startDate, setStartDate] = useState('2026-10-21')
-    const [endDate, setEndDate] = useState('2026-10-23')
+    const [startDate, setStartDate] = useState('')
+    const [endDate, setEndDate] = useState('')
+
+    useEffect(() => {
+        async function fetchReservations() {
+            try {
+                setLoading(true)
+                const querySnapshot = await getDocs(collection(db, 'reservations'))
+                const loadedReservations = querySnapshot.docs.map(docItem => ({
+                    id: docItem.id,
+                    ...docItem.data()
+                }))
+                setReservations(loadedReservations)
+            } catch (err) {
+                console.error('Error fetching reservations for reports:', err)
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchReservations()
+    }, [])
+
+    const properties = [...new Set(reservations.map((item) => item.property).filter(Boolean))]
+
+    const filteredReservations = reservations.filter((item) => {
+        const matchesProperty = !property || item.property === property
+        const matchesStartDate = !startDate || (item.startDate && item.startDate >= startDate)
+        const matchesEndDate = !endDate || (item.endDate && item.endDate <= endDate)
+        return matchesProperty && matchesStartDate && matchesEndDate
+    })
+
+    const totalBookingsCount = filteredReservations.length
+
+    const totalRevenue = filteredReservations.reduce((sum, item) => {
+        const amountStr = String(item.totalAmount || item.amountPaid || '0').replace(/[^\d.]/g, '')
+        return sum + (parseFloat(amountStr) || 0)
+    }, 0)
+
+    const statusCounts = {
+        Confirmed: 0,
+        Pending: 0,
+        Completed: 0,
+        Cancelled: 0,
+        Paid: 0
+    }
+
+    filteredReservations.forEach((item) => {
+        const status = item.status || 'Pending'
+        if (statusCounts[status] !== undefined) {
+            statusCounts[status]++
+        } else {
+            statusCounts[status] = 1
+        }
+    })
+
+    const bookingStatusesList = [
+        { status: 'Confirmed', count: statusCounts.Confirmed },
+        { status: 'Pending', count: statusCounts.Pending },
+        { status: 'Completed', count: statusCounts.Completed },
+        { status: 'Cancelled', count: statusCounts.Cancelled },
+        { status: 'Paid', count: statusCounts.Paid }
+    ]
 
     const exportReport = () => {
         const rows = [
             ['Report', 'Reports and Analytics'],
             ['Property', property || 'All Property'],
-            ['Start Date', startDate],
-            ['End Date', endDate],
+            ['Start Date', startDate || 'All Time'],
+            ['End Date', endDate || 'All Time'],
             [],
-            ['Booking Status', 'Details'],
-            ...bookingStatuses.map(({ status, detail }) => [status, detail]),
+            ['Booking Status', 'Count'],
+            ...bookingStatusesList.map(({ status, count }) => [status, count]),
             [],
-            ['Booking Revenue', '₱850,000'],
-            ['Total Bookings', '5,000'],
+            ['Booking Revenue', `₱${totalRevenue.toLocaleString()}`],
+            ['Total Bookings', totalBookingsCount],
         ]
 
         const csv = rows
@@ -59,8 +116,11 @@ export function AdminReports() {
                         onChange={(event) => setProperty(event.target.value)}
                     >
                         <option value="">All Property</option>
-                        <option value="Fabian's Azzure">Fabian's Azzure</option>
-                        <option value="Sirena Resort">Sirena Resort</option>
+                        {properties.map((prop) => (
+                            <option key={prop} value={prop}>
+                                {prop}
+                            </option>
+                        ))}
                     </select>
                 </div>
             </div>
@@ -87,53 +147,59 @@ export function AdminReports() {
                 </div>
             </div>
 
-            <div className="row g-3 mb-3">
-                <div className="col-12 col-lg-9">
-                    <article className="card admin-report-statN h-100">
-                        <div className="card-body">
-                            <h2 className="h5 card-title">Booking Revenue</h2>
-                            <p className="display-5 fw-bold mb-0">₱850,000</p>
+            {loading ? (
+                <p className="text-center py-4">Loading reports and analytics...</p>
+            ) : (
+                <>
+                    <div className="row g-3 mb-3">
+                        <div className="col-12 col-lg-9">
+                            <article className="card admin-report-statN h-100">
+                                <div className="card-body">
+                                    <h2 className="h5 card-title">Booking Revenue</h2>
+                                    <p className="display-5 fw-bold mb-0">₱{totalRevenue.toLocaleString()}</p>
+                                </div>
+                            </article>
                         </div>
-                    </article>
-                </div>
-                <div className="col-12 col-lg-3">
-                    <article className="card admin-report-statN h-100">
-                        <div className="card-body">
-                            <h2 className="h5 card-title">Total Bookings</h2>
-                            <p className="display-5 fw-bold mb-0">5,000</p>
+                        <div className="col-12 col-lg-3">
+                            <article className="card admin-report-statN h-100">
+                                <div className="card-body">
+                                    <h2 className="h5 card-title">Total Bookings</h2>
+                                    <p className="display-5 fw-bold mb-0">{totalBookingsCount.toLocaleString()}</p>
+                                </div>
+                            </article>
                         </div>
-                    </article>
-                </div>
-            </div>
+                    </div>
 
-            <div className="row">
-                <div className="col-12 col-lg-9">
-                    <article className="card admin-report-statusN">
-                        <div className="card-body">
-                            <h2 className="h5 card-title mb-3">Booking Status</h2>
-                            <ul className="list-group list-group-flush">
-                                {bookingStatuses.map(({ status, detail }) => (
-                                    <li
-                                        key={status}
-                                        className="list-group-item d-flex justify-content-between gap-3 px-0"
-                                    >
-                                        <span>{status}</span>
-                                        <span className="text-end">{detail}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </article>
+                    <div className="row">
+                        <div className="col-12 col-lg-9">
+                            <article className="card admin-report-statusN">
+                                <div className="card-body">
+                                    <h2 className="h5 card-title mb-3">Booking Status</h2>
+                                    <ul className="list-group list-group-flush">
+                                        {bookingStatusesList.map(({ status, count }) => (
+                                            <li
+                                                key={status}
+                                                className="list-group-item d-flex justify-content-between gap-3 px-0"
+                                            >
+                                                <span>{status}</span>
+                                                <span className="text-end">{count}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </article>
 
-                    <button
-                        type="button"
-                        className="btn admin-report-exportN mt-3"
-                        onClick={exportReport}
-                    >
-                        Export
-                    </button>
-                </div>
-            </div>
+                            <button
+                                type="button"
+                                className="btn admin-report-exportN mt-3"
+                                onClick={exportReport}
+                            >
+                                Export
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
         </section>
     )
 }

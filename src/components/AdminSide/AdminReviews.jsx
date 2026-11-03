@@ -1,39 +1,39 @@
-﻿import { useState } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-
-const reviews = [
-    {
-        id: 'REV-001',
-        guest: 'Mj Massalang',
-        property: "Fabian's Azzure",
-        rating: 4,
-        status: 'Active',
-        date: '2026-10-25',
-    },
-    {
-        id: 'REV-002',
-        guest: 'Mi Massalang',
-        property: 'Galilee Wonderland Resort',
-        rating: 5,
-        status: 'Reported',
-        date: '2026-10-21',
-        stayStartDate: '2026-10-19',
-        stayEndDate: '2026-10-21',
-        breakdown: {},
-        comment: 'lorem ipsum dolor sit amet, consectetur adipiscing elit optio est id sit dolore at vel est ad ducimus mollitia assumenda at qui tempore quod magna',
-    },
-]
+import { collection, getDocs } from 'firebase/firestore'
+import { db } from '../../firebase'
 
 const filters = ['All', 'Active', 'Reported']
 
 export function AdminReviews({ onReviewAction, preview = false }) {
+    const [reviews, setReviews] = useState([])
+    const [loading, setLoading] = useState(true)
     const [activeFilter, setActiveFilter] = useState('All')
     const [selectedProperty, setSelectedProperty] = useState('')
     const [selectedDate, setSelectedDate] = useState('')
     const [search, setSearch] = useState('')
     const navigate = useNavigate()
 
-    const properties = [...new Set(reviews.map((review) => review.property))]
+    useEffect(() => {
+        async function fetchReviews() {
+            try {
+                setLoading(true)
+                const querySnapshot = await getDocs(collection(db, 'reviews'))
+                const loadedReviews = querySnapshot.docs.map(docItem => ({
+                    id: docItem.id,
+                    ...docItem.data()
+                }))
+                setReviews(loadedReviews)
+            } catch (err) {
+                console.error('Error fetching reviews:', err)
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchReviews()
+    }, [])
+
+    const properties = [...new Set(reviews.map((review) => review.property).filter(Boolean))]
 
     const filteredReviews = reviews.filter((review) => {
         const query = search.trim().toLowerCase()
@@ -44,8 +44,8 @@ export function AdminReviews({ onReviewAction, preview = false }) {
             (!selectedDate || review.date === selectedDate) &&
             (!query ||
                 review.id.toLowerCase().includes(query) ||
-                review.guest.toLowerCase().includes(query) ||
-                review.property.toLowerCase().includes(query))
+                (review.guest || '').toLowerCase().includes(query) ||
+                (review.property || '').toLowerCase().includes(query))
         )
     })
 
@@ -128,52 +128,56 @@ export function AdminReviews({ onReviewAction, preview = false }) {
             </div>
 
             <div className="table-responsive">
-                <table className="table table-borderless align-middle admin-review-tableN">
-                    <thead>
-                        <tr>
-                            <th scope="col">Guest</th>
-                            <th scope="col">Property</th>
-                            <th scope="col">Rating</th>
-                            <th scope="col">Status</th>
-                            <th scope="col">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredReviews.map((review) => (
-                            <tr key={review.id}>
-                                <td>{review.guest}</td>
-                                <td>{review.property}</td>
-                                <td>
-                                    <span aria-label={`Rating ${review.rating} out of 5`}>
-                                        {Array.from({ length: 5 }, (_, index) => (
-                                            <i
-                                                key={index}
-                                                className={`bi ${
-                                                    index < review.rating
-                                                        ? 'bi-star-fill'
-                                                        : 'bi-star'
-                                                } ${index < review.rating ? 'text-warning' : ''} me-1`}
-                                                aria-hidden="true"
-                                            />
-                                        ))}
-                                    </span>
-                                </td>
-                                <td>{review.status}</td>
-                                <td>
-                                    <button
-                                        type="button"
-                                        className="btn btn-link admin-review-actionN p-0"
-                                        onClick={() => onReviewAction ? onReviewAction(review) : navigate(`${preview ? "/admin-preview" : "/admin"}/reviews/${encodeURIComponent(review.id)}`, { state: { review } })}
-                                    >
-                                        {review.status === 'Reported' ? 'Review' : 'View'}
-                                    </button>
-                                </td>
+                {loading ? (
+                    <p className="text-center py-4">Loading reviews...</p>
+                ) : (
+                    <table className="table table-borderless align-middle admin-review-tableN">
+                        <thead>
+                            <tr>
+                                <th scope="col">Guest</th>
+                                <th scope="col">Property</th>
+                                <th scope="col">Rating</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Action</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {filteredReviews.map((review) => (
+                                <tr key={review.id}>
+                                    <td>{review.guest}</td>
+                                    <td>{review.property}</td>
+                                    <td>
+                                        <span aria-label={`Rating ${review.rating} out of 5`}>
+                                            {Array.from({ length: 5 }, (_, index) => (
+                                                <i
+                                                    key={index}
+                                                    className={`bi ${
+                                                        index < review.rating
+                                                            ? 'bi-star-fill'
+                                                            : 'bi-star'
+                                                    } ${index < review.rating ? 'text-warning' : ''} me-1`}
+                                                    aria-hidden="true"
+                                                />
+                                            ))}
+                                        </span>
+                                    </td>
+                                    <td>{review.status}</td>
+                                    <td>
+                                        <button
+                                            type="button"
+                                            className="btn btn-link admin-review-actionN p-0"
+                                            onClick={() => onReviewAction ? onReviewAction(review) : navigate(`${preview ? "/admin-preview" : "/admin"}/reviews/${encodeURIComponent(review.id)}`, { state: { review } })}
+                                        >
+                                            {review.status === 'Reported' ? 'Review' : 'View'}
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
 
-                {filteredReviews.length === 0 && (
+                {!loading && filteredReviews.length === 0 && (
                     <p className="text-center py-4 mb-0">
                         No reviews match your filters.
                     </p>
@@ -182,4 +186,3 @@ export function AdminReviews({ onReviewAction, preview = false }) {
         </section>
     )
 }
-

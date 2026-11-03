@@ -1,3 +1,6 @@
+import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
 const menuItems = [
     { label: 'Dashboard', icon: 'bi-grid-fill' },
     { label: 'Users', icon: 'bi-bell-fill' },
@@ -14,7 +17,19 @@ const generalItems = [
     { label: 'Help', icon: 'bi-question-circle-fill' },
 ]
 
-export function AdminSidebar({ activeSection = 'Dashboard', onSelect, onLogout }) {
+export function AdminSidebar({ activeSection = 'Dashboard', onSelect }) {
+    const { logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            navigate('/login');
+        } catch (err) {
+            console.error('Failed to log out:', err);
+        }
+    };
+
     const renderItem = (item) => (
         <button
             key={item.label}
@@ -41,8 +56,8 @@ export function AdminSidebar({ activeSection = 'Dashboard', onSelect, onLogout }
 
                 <button
                     type="button"
-                    className="list-group-item list-group-item-action d-flex align-items-center gap-3 text-nowrap rounded-0"
-                    onClick={onLogout}
+                    className="list-group-item list-group-item-action d-flex align-items-center gap-3 text-nowrap rounded-0 text-danger"
+                    onClick={handleLogout}
                 >
                     <i className="bi bi-box-arrow-left" aria-hidden="true" />
                     <span>Logout</span>

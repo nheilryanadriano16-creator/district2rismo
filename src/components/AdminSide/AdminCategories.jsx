@@ -1,22 +1,9 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
+import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../../firebase'
 
-const initialPropertyCategories = [
-    { type: 'Private Resort', total: 26, status: 'Active' },
-]
-
-const initialAmenityGroups = [
-    {
-        name: 'General Amenities',
-        amenities: [
-            'Private Swimming Pool',
-            'Diving Pool',
-            'Adult Pool',
-            'Kiddie Pool',
-            'Water Slides',
-            'Jacuzzi / Hot Tub',
-            'Outdoor Shower',
-        ],
-    },
+const defaultAmenityGroups = [
+    { name: 'General Amenities', amenities: [] },
     { name: 'Accommodation & Comfort', amenities: [] },
     { name: 'Cooking & Entertainment', amenities: [] },
     { name: 'Group & Event Facilities', amenities: [] },
@@ -25,46 +12,145 @@ const initialAmenityGroups = [
 ]
 
 export function AdminCategories() {
-    const [propertyCategories, setPropertyCategories] = useState(
-        initialPropertyCategories
-    )
-    const [amenityGroups, setAmenityGroups] = useState(initialAmenityGroups)
-    const [activeGroup, setActiveGroup] = useState(initialAmenityGroups[0].name)
+    const [propertyCategories, setPropertyCategories] = useState([])
+    const [amenityGroups, setAmenityGroups] = useState(defaultAmenityGroups)
+    const [activeGroup, setActiveGroup] = useState(defaultAmenityGroups[0].name)
     const [showCategoryForm, setShowCategoryForm] = useState(false)
+    const [showAmenityInput, setShowAmenityInput] = useState(false)
     const [categoryName, setCategoryName] = useState('')
     const [amenityName, setAmenityName] = useState('')
+    const [loading, setLoading] = useState(false)
     const amenityInputRef = useRef(null)
+
+    useEffect(() => {
+        async function fetchCategoriesAndAmenities() {
+            try {
+                // Fetch categories from the new collection
+                const catSnap = await getDocs(collection(db, 'propertyCategories'))
+                if (!catSnap.empty) {
+                    const loadedCats = catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                    setPropertyCategories(loadedCats)
+                }
+
+                // Fetch amenity groups
+                const amenSnap = await getDocs(collection(db, 'amenityGroups'))
+                if (!amenSnap.empty) {
+                    const loadedGroups = amenSnap.docs.map(doc => doc.data())
+                    setAmenityGroups(prev => 
+                        prev.map(group => {
+                            const found = loadedGroups.find(g => g.name === group.name)
+                            return found ? { ...group, amenities: found.amenities || [] } : group
+                        })
+                    )
+                }
+            } catch (err) {
+                console.error('Error fetching categories and amenities:', err)
+            }
+        }
+        fetchCategoriesAndAmenities()
+    }, [])
 
     const selectedGroup = amenityGroups.find((group) => group.name === activeGroup)
 
-    const addPropertyCategory = (event) => {
+    const addPropertyCategory = async (event) => {
         event.preventDefault()
         const name = categoryName.trim()
 
         if (!name) return
 
-        setPropertyCategories((current) => [
-            ...current,
-            { type: name, total: 0, status: 'Active' },
-        ])
-        setCategoryName('')
-        setShowCategoryForm(false)
+        try {
+            setLoading(true)
+            const newCat = { type: name, total: 0, status: 'Active' }
+            const docRef = await addDoc(collection(db, 'propertyCategories'), {
+                ...newCat,
+                createdAt: serverTimestamp()
+            })
+
+            setPropertyCategories((current) => [...current, { id: docRef.id, ...newCat }])
+            setCategoryName('')
+            setShowCategoryForm(false)
+        } catch (err) {
+            console.error('Error adding category:', err)
+            alert('Failed to save category.')
+        } finally {
+            setLoading(false)
+        }
     }
 
-    const addAmenity = (event) => {
+    const addAmenity = async (event) => {
         event.preventDefault()
         const name = amenityName.trim()
 
         if (!name || !selectedGroup) return
 
-        setAmenityGroups((current) =>
-            current.map((group) =>
-                group.name === activeGroup
-                    ? { ...group, amenities: [...group.amenities, name] }
-                    : group
+        if (selectedGroup.amenities.includes(name)) {
+            alert('This amenity already exists in this group.')
+            return
+        }
+
+        const updatedAmenities = [...selectedGroup.amenities, name]
+
+        try {
+            setLoading(true)
+
+            setAmenityGroups((current) =>
+                current.map((group) =>
+                    group.name === activeGroup
+                        ? { ...group, amenities: updatedAmenities }
+                        : group
+                )
             )
-        )
-        setAmenityName('')
+            setAmenityName('')
+            setShowAmenityInput(false)
+
+            const safeDocId = activeGroup.replace(/[^a-zA-Z0-9]/g, '_')
+            const groupRef = doc(db, 'amenityGroups', safeDocId)
+            
+            await setDoc(groupRef, {
+                name: activeGroup,
+                amenities: updatedAmenities,
+                updatedAt: serverTimestamp()
+            }, { merge: true })
+
+        } catch (err) {
+            console.error('Error saving amenity:', err)
+            alert('Failed to add amenity.')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const deleteAmenity = async (amenityToDelete) => {
+        if (!selectedGroup) return
+
+        const updatedAmenities = selectedGroup.amenities.filter(item => item !== amenityToDelete)
+
+        try {
+            setLoading(true)
+
+            setAmenityGroups((current) =>
+                current.map((group) =>
+                    group.name === activeGroup
+                        ? { ...group, amenities: updatedAmenities }
+                        : group
+                )
+            )
+
+            const safeDocId = activeGroup.replace(/[^a-zA-Z0-9]/g, '_')
+            const groupRef = doc(db, 'amenityGroups', safeDocId)
+            
+            await setDoc(groupRef, {
+                name: activeGroup,
+                amenities: updatedAmenities,
+                updatedAt: serverTimestamp()
+            }, { merge: true })
+
+        } catch (err) {
+            console.error('Error deleting amenity:', err)
+            alert('Failed to delete amenity.')
+        } finally {
+            setLoading(false)
+        }
     }
 
     return (
@@ -105,8 +191,8 @@ export function AdminCategories() {
                             />
                         </div>
                         <div className="col-auto">
-                            <button className="btn admin-category-primaryN" type="submit">
-                                Add
+                            <button className="btn admin-category-primaryN" type="submit" disabled={loading}>
+                                {loading ? 'Saving...' : 'Add'}
                             </button>
                         </div>
                     </form>
@@ -122,13 +208,21 @@ export function AdminCategories() {
                             </tr>
                         </thead>
                         <tbody>
-                            {propertyCategories.map((category) => (
-                                <tr key={category.type}>
-                                    <td>{category.type}</td>
-                                    <td>{category.total}</td>
-                                    <td>{category.status}</td>
+                            {propertyCategories.length === 0 ? (
+                                <tr>
+                                    <td colSpan="3" className="text-center text-white py-3">
+                                        No property categories added yet.
+                                    </td>
                                 </tr>
-                            ))}
+                            ) : (
+                                propertyCategories.map((category) => (
+                                    <tr key={category.id || category.type}>
+                                        <td>{category.type}</td>
+                                        <td>{category.total}</td>
+                                        <td>{category.status}</td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -143,7 +237,10 @@ export function AdminCategories() {
                     <button
                         type="button"
                         className="btn admin-category-primaryN"
-                        onClick={() => amenityInputRef.current?.focus()}
+                        onClick={() => {
+                            setShowAmenityInput((prev) => !prev)
+                            setTimeout(() => amenityInputRef.current?.focus(), 0)
+                        }}
                     >
                         Add Amenities
                     </button>
@@ -175,32 +272,50 @@ export function AdminCategories() {
                     <div className="col-12 col-md-8 col-xl-8">
                         <div className="admin-amenity-listN rounded-3 p-3 p-md-4">
                             <div className="row row-cols-1 row-cols-lg-2 g-3">
-                                {selectedGroup?.amenities.map((amenity) => (
-                                    <div className="col" key={amenity}>
-                                        {amenity}
+                                {selectedGroup?.amenities.length === 0 && !showAmenityInput ? (
+                                    <div className="col-12 text-white py-2">
+                                        No amenities listed under this group yet.
                                     </div>
-                                ))}
+                                ) : (
+                                    selectedGroup?.amenities.map((amenity) => (
+                                        <div className="col d-flex justify-content-between align-items-center" key={amenity}>
+                                            <span>{amenity}</span>
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm text-danger p-0 ms-2"
+                                                onClick={() => deleteAmenity(amenity)}
+                                                disabled={loading}
+                                                title="Delete amenity"
+                                            >
+                                                <i className="bi bi-trash" />
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
 
-                                <div className="col">
-                                    <form onSubmit={addAmenity}>
-                                        <label
-                                            className="visually-hidden"
-                                            htmlFor="new-amenity"
-                                        >
-                                            Add an amenity
-                                        </label>
-                                        <input
-                                            ref={amenityInputRef}
-                                            id="new-amenity"
-                                            className="form-control admin-category-inputN"
-                                            value={amenityName}
-                                            onChange={(event) =>
-                                                setAmenityName(event.target.value)
-                                            }
-                                            placeholder="Add another on the list..."
-                                        />
-                                    </form>
-                                </div>
+                                {showAmenityInput && (
+                                    <div className="col">
+                                        <form onSubmit={addAmenity}>
+                                            <label
+                                                className="visually-hidden"
+                                                htmlFor="new-amenity"
+                                            >
+                                                Add an amenity
+                                            </label>
+                                            <input
+                                                ref={amenityInputRef}
+                                                id="new-amenity"
+                                                className="form-control admin-category-inputN"
+                                                value={amenityName}
+                                                onChange={(event) =>
+                                                    setAmenityName(event.target.value)
+                                                }
+                                                placeholder="Add another on the list..."
+                                                disabled={loading}
+                                            />
+                                        </form>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

@@ -2,11 +2,8 @@ import { useState } from 'react'
 import { AdminNavbar } from './AdminNavbar.jsx'
 import { AdminHostRevoke } from './AdminHostRevoke.jsx'
 import { AdminHostDeactivate } from './AdminHostDeactivate.jsx'
-
-const sampleProperties = [
-    { name: 'Fabian�s Azzure', location: 'Bustos', status: 'Approved' },
-    { name: 'Villa Sirena', location: 'Bustos', status: 'Pending' },
-]
+import { doc, updateDoc, deleteField } from 'firebase/firestore'
+import { db } from '../../firebase'
 
 export function AdminHostDetails({
     host,
@@ -17,6 +14,37 @@ export function AdminHostDetails({
 }) {
     const [showRevoke, setShowRevoke] = useState(false)
     const [showDeactivate, setShowDeactivate] = useState(false)
+    const [loadingVerify, setLoadingVerify] = useState(false)
+    const [currentStatus, setCurrentStatus] = useState(host?.status || 'Verified')
+
+    const displayName = host?.firstName && host?.lastName 
+        ? `${host.firstName} ${host.lastName}` 
+        : host?.name || (host?.email ? host.email.split('@')[0] : 'Host')
+
+    const isVerified = currentStatus.toLowerCase() === 'verified'
+    const isDeactivated = currentStatus.toLowerCase() === 'deactivated'
+    const hostProperties = host?.properties || []
+
+    const handleVerifyHost = async () => {
+        if (!host?.id) return
+
+        try {
+            setLoadingVerify(true)
+            const hostRef = doc(db, 'users', host.id)
+            await updateDoc(hostRef, {
+                status: 'Verified',
+                verifiedAt: new Date().toISOString(),
+                revocationReason: deleteField(),
+                revokedAt: deleteField()
+            })
+            setCurrentStatus('Verified')
+        } catch (err) {
+            console.error('Error verifying host:', err)
+            alert('Failed to verify host: ' + err.message)
+        } finally {
+            setLoadingVerify(false)
+        }
+    }
 
     return (
         <div className="admin-shellN">
@@ -38,59 +66,85 @@ export function AdminHostDetails({
                                 <div className="col">
                                     <div className="d-flex align-items-center gap-3">
                                         <span className="admin-host-detail-avatarN rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" aria-hidden="true">
-                                            {(host.name || 'H').charAt(0).toUpperCase()}
+                                            {displayName.charAt(0).toUpperCase()}
                                         </span>
                                         <div>
-                                            <h1 className="mb-1">{host.name}</h1>
-                                            <p className="text-warning mb-0">{host.email}</p>
+                                            <h1 className="mb-1 text-white">{displayName}</h1>
+                                            <p className="text-warning mb-0">{host?.email || '—'}</p>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="col-12 col-md-auto">
-                                    <span className="badge rounded-pill admin-host-detail-statusN">{host.status}</span>
+                                    <span className="badge rounded-pill admin-host-detail-statusN">{currentStatus}</span>
                                 </div>
                             </div>
                         </header>
 
                         <section className="admin-host-detail-panelN rounded-3 p-3 p-md-4 mb-3">
-                            <h2 className="h5 fw-bold mb-3">Host Information</h2>
+                            <h2 className="h5 fw-bold mb-3 text-white">Host Information</h2>
                             <dl className="row mb-0">
-                                <dt className="col-sm-6 fw-normal py-2">Name</dt>
-                                <dd className="col-sm-6 text-sm-end py-2">{host.name}</dd>
-                                <dt className="col-sm-6 fw-normal py-2">Email</dt>
-                                <dd className="col-sm-6 text-sm-end py-2">{host.email}</dd>
-                                <dt className="col-sm-6 fw-normal py-2">Phone</dt>
-                                <dd className="col-sm-6 text-sm-end py-2">{host.phone || '�'}</dd>
-                                <dt className="col-sm-6 fw-normal py-2">Verification Status</dt>
-                                <dd className="col-sm-6 text-sm-end text-warning py-2">{host.status}</dd>
+                                <dt className="col-sm-6 fw-normal py-2 text-white">Name</dt>
+                                <dd className="col-sm-6 text-sm-end py-2 text-white">{displayName}</dd>
+                                <dt className="col-sm-6 fw-normal py-2 text-white">Email</dt>
+                                <dd className="col-sm-6 text-sm-end py-2 text-white">{host?.email || '—'}</dd>
+                                <dt className="col-sm-6 fw-normal py-2 text-white">Phone</dt>
+                                <dd className="col-sm-6 text-sm-end py-2 text-white">{host?.phone || '—'}</dd>
+                                <dt className="col-sm-6 fw-normal py-2 text-white">Verification Status</dt>
+                                <dd className="col-sm-6 text-sm-end text-warning py-2">{currentStatus}</dd>
                             </dl>
                         </section>
 
                         <section className="admin-host-detail-panelN admin-host-propertiesN rounded-3 p-3 p-md-4 mb-3">
-                            <h2 className="h5 fw-bold mb-3">Properties</h2>
+                            <h2 className="h5 fw-bold mb-3 text-white">Properties</h2>
                             <div className="table-responsive">
                                 <table className="table table-borderless align-middle admin-host-properties-tableN mb-0">
-                                    <thead><tr><th scope="col">Property</th><th scope="col">Location</th><th scope="col">Status</th></tr></thead>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col" className="text-white">Property</th>
+                                            <th scope="col" className="text-white">Location</th>
+                                            <th scope="col" className="text-white">Status</th>
+                                        </tr>
+                                    </thead>
                                     <tbody>
-                                        {sampleProperties.map((property) => (
-                                            <tr key={property.name}>
-                                                <td>{property.name}</td>
-                                                <td>{property.location}</td>
-                                                <td>{property.status}</td>
+                                        {hostProperties.length > 0 ? (
+                                            hostProperties.map((property, index) => (
+                                                <tr key={property.id || index}>
+                                                    <td className="text-white">{property.name || '—'}</td>
+                                                    <td className="text-white">{property.location || '—'}</td>
+                                                    <td className="text-white">{property.status || '—'}</td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="3" className="text-white text-center py-3">No properties listed for this host.</td>
                                             </tr>
-                                        ))}
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
                         </section>
 
                         <div className="d-flex flex-wrap justify-content-end gap-3">
-                            <button type="button" className="btn admin-host-deactivateN admin-user-account-buttonN" onClick={() => setShowDeactivate(true)}>
-                                Deactivate Account
+                            <button 
+                                type="button" 
+                                className={`btn admin-user-account-buttonN ${isDeactivated ? 'btn-success text-white' : 'admin-host-deactivateN'}`} 
+                                onClick={() => setShowDeactivate(true)}
+                            >
+                                {isDeactivated ? 'Reactivate Account' : 'Deactivate Account'}
                             </button>
-                            {host.status === 'Verified' && (
+
+                            {isVerified ? (
                                 <button type="button" className="btn admin-host-revokeN admin-user-account-buttonN" onClick={() => setShowRevoke(true)}>
                                     Revoke Verification
+                                </button>
+                            ) : (
+                                <button 
+                                    type="button" 
+                                    className="btn btn-success text-white admin-user-account-buttonN" 
+                                    onClick={handleVerifyHost}
+                                    disabled={loadingVerify}
+                                >
+                                    {loadingVerify ? 'Verifying...' : 'Verify Host'}
                                 </button>
                             )}
                         </div>
@@ -102,13 +156,19 @@ export function AdminHostDetails({
                 show={showRevoke}
                 host={host}
                 onHide={() => setShowRevoke(false)}
-                onConfirm={onRevokeVerification}
+                onConfirm={(data) => {
+                    onRevokeVerification?.(data)
+                    setCurrentStatus('Unverified')
+                }}
             />
             <AdminHostDeactivate
                 show={showDeactivate}
                 host={host}
                 onHide={() => setShowDeactivate(false)}
-                onConfirm={onDeactivateHost}
+                onConfirm={(data) => {
+                    onDeactivateHost?.(data)
+                    setCurrentStatus(data.action === 'reactivate' ? 'Active' : 'Deactivated')
+                }}
             />
         </div>
     )

@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Modal from 'react-bootstrap/Modal'
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 
 const reasons = [
     'Violation of verification requirements',
@@ -11,23 +13,49 @@ const reasons = [
 export function AdminHostRevoke({ show, host, onHide, onConfirm }) {
     const [reason, setReason] = useState('')
     const [notifyHost, setNotifyHost] = useState(false)
+    const [loading, setLoading] = useState(false)
 
-    const closeModal = () => {
-        setReason('')
-        setNotifyHost(false)
-        onHide()
-    }
+    const displayName = host?.firstName && host?.lastName 
+        ? `${host.firstName} ${host.lastName}` 
+        : host?.name || host?.email || 'Host'
 
-    const submitRevocation = (event) => {
+    useEffect(() => {
+        if (!show) {
+            setReason('')
+            setNotifyHost(false)
+            setLoading(false)
+        }
+    }, [show])
+
+    const submitRevocation = async (event) => {
         event.preventDefault()
-        onConfirm?.({ host, reason, notifyHost })
-        closeModal()
+        if (!host?.id) return
+
+        try {
+            setLoading(true)
+            const hostRef = doc(db, 'users', host.id)
+            await updateDoc(hostRef, {
+                status: 'Unverified',
+                revocationReason: reason,
+                revokedAt: new Date().toISOString()
+            })
+
+            onConfirm?.({ host, reason, notifyHost })
+            onHide()
+        } catch (err) {
+            console.error('Error revoking host verification:', err)
+            alert('Failed to revoke verification: ' + err.message)
+        } finally {
+            setLoading(false)
+        }
     }
+
+    if (!host) return null
 
     return (
         <Modal
             show={show}
-            onHide={closeModal}
+            onHide={onHide}
             centered
             dialogClassName="admin-host-revoke-dialogN"
             contentClassName="admin-host-revoke-modalN"
@@ -37,34 +65,31 @@ export function AdminHostRevoke({ show, host, onHide, onConfirm }) {
                 type="button"
                 className="admin-suspend-closeN"
                 aria-label="Close"
-                onClick={closeModal}
+                onClick={onHide}
             >
                 <i className="bi bi-x-lg" aria-hidden="true" />
             </button>
 
             <form onSubmit={submitRevocation}>
-                <Modal.Body className="admin-host-revoke-bodyN">
+                <Modal.Body className="admin-host-revoke-bodyN text-white">
                     <h2
                         id="admin-host-revoke-title"
-                        className="admin-suspend-titleN text-center fw-bold"
+                        className="admin-suspend-titleN text-center fw-bold text-white mb-3"
                     >
                         Revoke Verification
                     </h2>
 
-                    <p className="text-center mb-4">
-                        Are you sure you want to revoke {host.name}&apos;s
-                        verification? The host will lose their Verified status
-                        until the issue is resolved and verification is restored.
-                        Their property listings may be restricted according to
-                        District2rismo&apos;s policies.
+                    <p className="text-center mb-4 text-white">
+                        Are you sure you want to revoke <strong>{displayName}&apos;s</strong>{' '}
+                        verification? The host will lose their Verified status until the issue is resolved.
                     </p>
 
-                    <label className="form-label" htmlFor="host-revoke-reason">
+                    <label className="form-label text-white" htmlFor="host-revoke-reason">
                         Reason for Revocation:
                     </label>
                     <select
                         id="host-revoke-reason"
-                        className="form-select admin-host-revoke-selectN mb-4"
+                        className="form-select admin-host-revoke-selectN bg-dark text-white border-secondary mb-4"
                         value={reason}
                         onChange={(event) => setReason(event.target.value)}
                         required
@@ -85,21 +110,26 @@ export function AdminHostRevoke({ show, host, onHide, onConfirm }) {
                             checked={notifyHost}
                             onChange={(event) => setNotifyHost(event.target.checked)}
                         />
-                        <label className="form-check-label" htmlFor="host-revoke-notify">
+                        <label className="form-check-label text-white" htmlFor="host-revoke-notify">
                             Notify the host about this decision
                         </label>
                     </div>
 
-                    <div className="d-flex flex-column flex-sm-row justify-content-end gap-2">
+                    <div className="d-flex justify-content-center align-items-center gap-3 mt-4 w-100">
                         <button
                             type="button"
-                            className="btn admin-suspend-cancelN"
-                            onClick={closeModal}
+                            className="btn btn-outline-warning rounded-pill px-4"
+                            onClick={onHide}
+                            disabled={loading}
                         >
                             Cancel
                         </button>
-                        <button type="submit" className="btn admin-suspend-confirmN">
-                            Revoke Verification
+                        <button 
+                            type="submit" 
+                            className="btn btn-warning text-dark rounded-pill px-4 fw-semibold"
+                            disabled={loading}
+                        >
+                            {loading ? 'Revoking...' : 'Revoke Verification'}
                         </button>
                     </div>
                 </Modal.Body>
