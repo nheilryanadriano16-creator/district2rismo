@@ -20,13 +20,7 @@ export const BurgerOptionN = ({ darkMode = false, onToggleDarkMode, onNotificati
             </Dropdown.Toggle>
 
             <Dropdown.Menu className="burger-menuN p-2 rounded-4 shadow">
-                <div className="d-flex align-items-center justify-content-between gap-3 px-3 py-2">
-                    <span className="text-light">
-                        <i className="bi bi-moon-stars me-2 text-light" aria-hidden="true" />
-                        Dark Mode
-                    </span>
-                    <Form.Check type="switch" id="dark-mode-switch" className="m-0" aria-label="Toggle dark mode" checked={darkMode} onChange={(event) => onToggleDarkMode?.(event.target.checked)} />
-                </div>
+                
 
                 <Dropdown.Divider className="border-warning opacity-50" />
 

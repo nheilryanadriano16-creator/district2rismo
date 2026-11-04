@@ -90,7 +90,7 @@ export const SignUpN = ({ email: initialEmail = '', onBack, onClose }) => {
                     <p className="small mb-2">We may send you updates, deals, and account news. You can change your preferences anytime.</p>
                     <div className="form-check">
                         <input className="form-check-input" id="signup-no-promotions" type="checkbox" name="noPromotions" value="true" />
-                        <label className="form-check-label small" htmlFor="signup-no-promotions">I donâ€™t want to receive promotional emails.</label>
+                        <label className="form-check-label small" htmlFor="signup-no-promotions">I don't want to receive promotional emails.</label>
                     </div>
                 </div>
 

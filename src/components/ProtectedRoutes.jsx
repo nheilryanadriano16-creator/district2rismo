@@ -1,24 +1,39 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { LoginN } from "./auth/LoginN.jsx";
+import Modal from "react-bootstrap/Modal";
 
 export const ProtectedRoutes = ({ allowedRoles }) => {
   const { currentUser, userRole, loading } = useAuth();
+  const navigate = useNavigate();
 
-  if (loading) return null; 
+  if (loading) return null;
 
   if (!currentUser) {
-    return <Navigate to="/login" replace />;
+    const goHome = () => navigate("/", { replace: true });
+
+    return (
+      <Modal
+        show
+        onHide={goHome}
+        centered
+        contentClassName="bg-transparent border-0"
+      >
+        <Modal.Body className="p-0">
+          <LoginN onClose={goHome} />
+        </Modal.Body>
+      </Modal>
+    );
   }
 
- 
   const isAllowed =
     !allowedRoles ||
     allowedRoles.includes(userRole) ||
     (userRole === "host" && allowedRoles.includes("customer")) ||
-    userRole === "admin"; 
+    userRole === "admin";
 
   if (!isAllowed) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;

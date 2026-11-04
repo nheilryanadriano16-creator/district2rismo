@@ -66,22 +66,7 @@ export const AdminSetting = () => {
             </div>
 
             <div>
-                <h2 className="small settings-section-labelN mb-2">General</h2>
-                <div className="d-flex align-items-center gap-5">
-                    <label className="small mb-0" htmlFor="admin-settings-dark-mode">
-                        Dark Mode
-                    </label>
-                    <div className="form-check form-switch mb-0">
-                        <input
-                            id="admin-settings-dark-mode"
-                            className="form-check-input settings-switchN"
-                            type="checkbox"
-                            role="switch"
-                            checked={darkMode}
-                            onChange={(event) => setDarkMode(event.target.checked)}
-                        />
-                    </div>
-                </div>
+                
             </div>
         </section>
     )

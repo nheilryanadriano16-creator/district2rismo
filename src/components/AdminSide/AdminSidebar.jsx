@@ -24,7 +24,7 @@ export function AdminSidebar({ activeSection = 'Dashboard', onSelect }) {
     const handleLogout = async () => {
         try {
             await logout();
-            navigate('/login');
+            navigate('/destination');
         } catch (err) {
             console.error('Failed to log out:', err);
         }

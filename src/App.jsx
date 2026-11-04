@@ -4,7 +4,6 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoutes } from './components/ProtectedRoutes.jsx';
 import { RoleBasedRedirect } from './components/RoleBasedRedirect.jsx';
 import { Snackbar } from './components/Snackbar.jsx';
-
 import Home from './pages/Home.jsx';
 import Destinations from './pages/Destinations.jsx';
 import PlaceDetails from './pages/PlaceDetails.jsx';
