@@ -347,7 +347,10 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
                     <button
                         type="button"
                         className="btn btn-warning rounded-pill px-5 py-2 host-add-property-nextN"
-                        onClick={onNext}
+                        onClick={() => {
+                            onPropertyChange?.({ bedrooms })
+                            onNext?.()
+                        }}
                     >
                         Next
                     </button>

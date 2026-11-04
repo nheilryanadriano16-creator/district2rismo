@@ -169,7 +169,14 @@ export const PropertyRulesPolicies = ({ onBack, onNext, onExit, property, onProp
                 <button
                     type="button"
                     className="btn btn-warning rounded-pill px-5 py-2 host-add-property-nextN"
-                    onClick={onNext}
+                    onClick={() => {
+                        onPropertyChange?.({
+                            policies,
+                            selectedRules,
+                            rulesDescription: ruleText,
+                        })
+                        onNext?.()
+                    }}
                 >
                     Next
                 </button>

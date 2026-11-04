@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Logo2Rismo from '../images/2Rismo Logo.png'
 import { LoginN } from './auth/LoginN.jsx'
 import Modal from 'react-bootstrap/Modal'
@@ -14,9 +14,7 @@ function NavBar() {
     const [isLogoVisible, setIsLogoVisible] = useState(true)
 
     const { currentUser, userData, userRole, logout } = useAuth()
-    console.log('Current User:', currentUser)
-    console.log('User Data:', userData)
-    console.log('User Role:', userRole)
+    const navigate = useNavigate()
 
     useEffect(() => {
         const updateScrollState = () => setIsScrolled(window.scrollY > 0)
@@ -58,7 +56,14 @@ function NavBar() {
                             <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
                         </svg>
                     </button>
-                    <BurgerOptionN darkMode={darkMode} onToggleDarkMode={setDarkMode} onNotifications={() => setShowLogin(true)} onHelpCenter={() => console.log('Help Center clicked')} onListProperty={() => console.log('List your property clicked')} onLogin={() => setShowLogin(true)} />
+                    <BurgerOptionN
+                        darkMode={darkMode}
+                        onToggleDarkMode={setDarkMode}
+                        onNotifications={() => currentUser && userRole === 'host' ? navigate('/host') : setShowLogin(true)}
+                        onHelpCenter={() => console.log('Help Center clicked')}
+                        onListProperty={() => currentUser && userRole === 'host' ? navigate('/host') : setShowLogin(true)}
+                        onLogin={() => setShowLogin(true)}
+                    />
                 </div>
             </header>
 
@@ -87,9 +92,23 @@ function NavBar() {
                                 <span className="text-secondary small">Role</span>
                                 <p className="mb-0 text-capitalize">{userRole}</p>
                             </div>
-                            <div className="d-flex gap-2 mt-3">
-                                <Link to="/account" className="btn btn-warning w-50 fw-bold" onClick={() => setShowUserModal(false)}>Manage Profile</Link>
-                                <button className="btn btn-outline-danger w-50" onClick={() => { logout(); setShowUserModal(false); }}>Log Out</button>
+                            <div className="d-flex flex-column gap-2 mt-3">
+                                {userRole === 'host' && (
+                                    <Link to="/host" className="btn btn-warning w-100 fw-bold" onClick={() => setShowUserModal(false)}>Host Dashboard</Link>
+                                )}
+                                {userRole === 'admin' && (
+                                    <Link to="/admin" className="btn btn-warning w-100 fw-bold" onClick={() => setShowUserModal(false)}>Admin Dashboard</Link>
+                                )}
+                                <div className="d-flex gap-2">
+                                    <Link
+                                        to={userRole === 'host' ? '/host/profile' : userRole === 'admin' ? '/admin/profile' : '/account'}
+                                        className="btn btn-outline-warning w-50 fw-bold"
+                                        onClick={() => setShowUserModal(false)}
+                                    >
+                                        Manage Profile
+                                    </Link>
+                                    <button className="btn btn-outline-danger w-50" onClick={() => { logout(); setShowUserModal(false); }}>Log Out</button>
+                                </div>
                             </div>
                         </div>
                     ) : (

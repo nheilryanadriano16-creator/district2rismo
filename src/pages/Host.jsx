@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { HostNavBar } from '../components/HostSide/HostNavBar.jsx'
 import Footer from '../components/Footer.jsx'
 import { HostSideBarN } from '../components/HostSide/HostSideBarN.jsx'
@@ -13,9 +14,15 @@ import { HostAddProperty } from './HostAddProperty.jsx'
 import { HostSettingsN } from '../components/HostSide/HostSettingsN.jsx'
 import { HostHelp } from '../components/HostSide/HostHelp.jsx'
 
-export function HostN({ initialSection = 'Dashboard' }) {
-    const [selectedSection, setSelectedSection] = useState(initialSection)
+export function HostN({ initialSection = 'Dashboard', preview = false }) {
+    const { state: routeState } = useLocation()
+    const [selectedSection, setSelectedSection] = useState(routeState?.section || initialSection)
     const navigate = useNavigate()
+    const { logout } = useAuth()
+
+    useEffect(() => {
+        if (routeState?.section) setSelectedSection(routeState.section)
+    }, [routeState])
 
     const showBookingDetails = (booking) => {
         navigate('/host/confirm-booking', { state: { booking } })
@@ -28,6 +35,7 @@ export function HostN({ initialSection = 'Dashboard' }) {
             <HostNavBar
                 activeSection={selectedSection}
                 onSelect={setSelectedSection}
+                preview={preview}
             />
 
             <main className="account-mainN container-fluid px-0">
@@ -37,13 +45,17 @@ export function HostN({ initialSection = 'Dashboard' }) {
                             <HostSideBarN
                                 activeSection={selectedSection}
                                 onSelect={setSelectedSection}
+                                onLogout={async () => {
+                                    await logout()
+                                    navigate('/', { replace: true })
+                                }}
                             />
                         </div>
                     )}
 
                     <div className={isFullWidth ? 'col-12' : 'col-12 col-lg-9'}>
                         {selectedSection === 'Dashboard' ? (
-                            <HostDashboardN />
+                            <HostDashboardN onViewBookings={() => setSelectedSection('Bookings')} />
                         ) : selectedSection === 'Notifications' ? (
                             <HostNotificationN />
                         ) : selectedSection === 'Properties' ? (

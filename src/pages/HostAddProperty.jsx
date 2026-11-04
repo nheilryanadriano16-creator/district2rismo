@@ -7,10 +7,23 @@ import { Bedrooms } from '../components/HostSide/AddProperty/5-Bedrooms.jsx'
 import { PropertyRulesPolicies } from '../components/HostSide/AddProperty/6-Property-Rules&Policies.jsx'
 import { VerificationSubmission } from '../components/HostSide/AddProperty/7-Verification-Submission.jsx'
 import { HostViewPropertyNav } from '../components/HostSide/ViewPropertyDetails/HostViewPropertyNav.jsx'
+import { useAuth } from '../context/AuthContext'
+import { saveHostProperty } from '../utils/hostData'
+import { useNotification } from '../context/NotificationContext'
 
 export function HostAddProperty({ onBack, onNext, onReject, onApprove, onRemoveUnhide, onRemoveHide, mode = 'add', property }) {
     const [step, setStep] = useState(1)
-    const [draft, setDraft] = useState(property)
+    const [draft, setDraft] = useState(property || {
+        name: 'Maldives Resort',
+        municipality: 'Bustos',
+        location: 'Bustos, Bulacan',
+        address: 'San Pedro, Bustos',
+        shortDescription: 'Lorem ipsum dolor sit amet consectetur adipiscing elit at magna voluptate distinctio qui in omnis dolor in id placeat enim in praesentium pariatur laboris sint veniam sit ut qui duis sunt aliquip repellendus',
+        description: 'Lorem ipsum dolor sit amet consectetur adipiscing elit at magna voluptate distinctio qui in omnis dolor in id placeat enim in praesentium pariatur laboris sint veniam sit ut qui duis sunt aliquip repellendus',
+    })
+    const [saving, setSaving] = useState(false)
+    const { currentUser, userData } = useAuth()
+    const { showNotification } = useNotification()
 
     const isReview = mode === 'review'
     const [reviewAction, setReviewAction] = useState(null)
@@ -68,14 +81,14 @@ export function HostAddProperty({ onBack, onNext, onReject, onApprove, onRemoveU
             {isReview && editNavigation}
 
             <fieldset
-                disabled={isReview}
+                disabled={isReview || saving}
                 className={isReview ? 'admin-property-review-fieldsN' : ''}
             >
                 {step === 1 ? (
                     <BasicPropInfo
                         onBack={onBack}
                         onNext={() => setStep(2)}
-                        property={mode === 'edit' ? draft : undefined}
+                        property={draft}
                         onPropertyChange={updateProperty}
                         editNavigation={mode === 'edit' ? editNavigation : null}
                     />
@@ -84,7 +97,7 @@ export function HostAddProperty({ onBack, onNext, onReject, onApprove, onRemoveU
                         onExit={onBack}
                         onBack={() => setStep(1)}
                         onNext={() => setStep(3)}
-                        property={mode === 'edit' ? draft : undefined}
+                        property={draft}
                         onPropertyChange={updateProperty}
                         editNavigation={mode === 'edit' ? editNavigation : null}
                     />
@@ -102,7 +115,7 @@ export function HostAddProperty({ onBack, onNext, onReject, onApprove, onRemoveU
                         onExit={onBack}
                         onBack={() => setStep(3)}
                         onNext={() => setStep(5)}
-                        property={mode === 'edit' ? draft : undefined}
+                        property={draft}
                         onPropertyChange={updateProperty}
                         editNavigation={mode === 'edit' ? editNavigation : null}
                     />
@@ -120,14 +133,36 @@ export function HostAddProperty({ onBack, onNext, onReject, onApprove, onRemoveU
                         onExit={onBack}
                         onBack={() => setStep(5)}
                         onNext={() => setStep(7)}
-                        property={mode === 'edit' ? draft : undefined}
+                        property={draft}
                         onPropertyChange={updateProperty}
                         editNavigation={mode === 'edit' ? editNavigation : null}
                     />
                 ) : (
                     <VerificationSubmission
                         onBack={() => setStep(6)}
-                        onSubmit={(verificationFiles) => onNext?.({ ...draft, verificationFiles })}
+                        onSubmit={async (verificationFiles) => {
+                            const nextProperty = { ...draft, verificationFiles }
+                            if ((mode === 'add' || mode === 'edit') && currentUser?.uid) {
+                                try {
+                                    setSaving(true)
+                                    const saved = await saveHostProperty(currentUser?.uid, userData, {
+                                        ...nextProperty,
+                                        id: draft?.id || property?.id,
+                                    }, mode)
+                                    showNotification(mode === 'edit' ? 'Property updated.' : 'Property submitted for review.', 'success')
+                                    onNext?.(saved)
+                                    if (!onNext) onBack?.()
+                                } catch (error) {
+                                    console.error('Error saving property:', error)
+                                    showNotification(error.message || 'Could not save property.', 'danger')
+                                    return
+                                } finally {
+                                    setSaving(false)
+                                }
+                                return
+                            }
+                            onNext?.(nextProperty)
+                        }}
                         property={draft}
                         onPropertyChange={updateProperty}
                         isEditing={mode === 'edit'}

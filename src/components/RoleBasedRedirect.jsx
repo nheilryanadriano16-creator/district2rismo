@@ -12,6 +12,9 @@ export function RoleBasedRedirect({ children }) {
     if (userRole === 'admin') {
       return <Navigate to="/admin" replace />;
     }
+    if (userRole === 'host') {
+      return <Navigate to="/host" replace />;
+    }
   }
 
   return children;

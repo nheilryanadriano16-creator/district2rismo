@@ -1,30 +1,62 @@
-import { useState } from 'react'
-
-const sampleBookings = [
-    { id: 1, guest: 'Mj Massalang', resort: 'Galilee Wonderland Resort', date: '2026-10-27', guests: 4, status: 'Pending' },
-    { id: 2, guest: 'Mj Massalang', resort: 'Galilee Wonderland Resort', date: '2026-10-27', guests: 4, status: 'Pending' },
-    { id: 3, guest: 'Mj Massalang', resort: 'Galilee Wonderland Resort', date: '2026-10-27', guests: 4, status: 'Pending' },
-    { id: 4, guest: 'Mj Massalang', resort: 'Galilee Wonderland Resort', date: '2026-10-27', guests: 4, status: 'Pending' },
-]
+import { useEffect, useState } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { fetchHostProperties, fetchHostReservations } from '../../utils/hostData'
 
 const filters = ['All', 'Pending', 'Accepted', 'Rejected']
 
-const formatDate = (date) => new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-})
+const formatDate = (date) => {
+    if (!date) return '—'
+    const parsed = /^\d{4}-\d{2}-\d{2}$/.test(String(date))
+        ? new Date(`${date}T00:00:00`)
+        : new Date(date)
+    if (Number.isNaN(parsed.getTime())) return '—'
+    return parsed.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+    })
+}
 
 export const HostBookingsN = ({ onViewBooking }) => {
+    const { currentUser } = useAuth()
     const [activeFilter, setActiveFilter] = useState('All')
     const [search, setSearch] = useState('')
-    const [selectedBooking, setSelectedBooking] = useState(sampleBookings[0])
-    const [selectedDate, setSelectedDate] = useState(sampleBookings[0].date)
+    const [bookings, setBookings] = useState([])
+    const [properties, setProperties] = useState([])
+    const [selectedProperty, setSelectedProperty] = useState('')
+    const [selectedBooking, setSelectedBooking] = useState(null)
+    const [selectedDate, setSelectedDate] = useState('')
 
-    const visibleBookings = sampleBookings.filter((booking) => {
-        const matchesFilter = activeFilter === 'All' || booking.status === activeFilter
+    useEffect(() => {
+        let isMounted = true
+
+        async function loadBookings() {
+            if (!currentUser?.uid) return
+            try {
+                const hostProperties = await fetchHostProperties(currentUser.uid, { email: currentUser.email })
+                const hostBookings = await fetchHostReservations(currentUser.uid, hostProperties)
+                if (!isMounted) return
+                setProperties(hostProperties)
+                setBookings(hostBookings)
+                const first = hostBookings[0] || null
+                setSelectedBooking(first)
+                setSelectedDate(first?.date || '')
+            } catch (error) {
+                console.error('Error loading host bookings:', error)
+            }
+        }
+
+        loadBookings()
+        return () => {
+            isMounted = false
+        }
+    }, [currentUser])
+
+    const visibleBookings = bookings.filter((booking) => {
+        const matchesFilter = activeFilter === 'All' || booking.filterStatus === activeFilter
         const matchesSearch = booking.guest.toLowerCase().includes(search.toLowerCase())
-        return matchesFilter && matchesSearch
+        const matchesProperty = !selectedProperty || booking.resort === selectedProperty
+        return matchesFilter && matchesSearch && matchesProperty
     })
 
     const handleSelectBooking = (booking) => {
@@ -33,13 +65,22 @@ export const HostBookingsN = ({ onViewBooking }) => {
         onViewBooking?.(booking)
     }
 
+    const totalGuests = visibleBookings.reduce((sum, booking) => sum + (Number(booking.guests) || 0), 0)
+
     return (
         <section className="host-bookingsN container-fluid p-3 p-md-4">
             <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
                 <h1 className="h2 fw-bold mb-0">Bookings</h1>
-                <select className="form-select host-property-selectN" aria-label="Choose property">
-                    <option>Fabian’s Azzure</option>
-                    <option>Galilee Wonderland Resort</option>
+                <select
+                    className="form-select host-property-selectN"
+                    aria-label="Choose property"
+                    value={selectedProperty}
+                    onChange={(event) => setSelectedProperty(event.target.value)}
+                >
+                    <option value="">All Properties</option>
+                    {properties.map((property) => (
+                        <option key={property.id} value={property.name}>{property.name}</option>
+                    ))}
                 </select>
             </div>
 
@@ -56,7 +97,7 @@ export const HostBookingsN = ({ onViewBooking }) => {
 
                         <hr className="host-booking-dividerN mt-0" />
 
-                        <p className="small mb-2">43 Guests</p>
+                        <p className="small mb-2">{totalGuests} Guests</p>
 
                         <div className="input-group mb-2">
                             <input className="form-control host-booking-searchN" type="search" placeholder="Search Name" aria-label="Search guest names" value={search} onChange={(event) => setSearch(event.target.value)} />
@@ -76,7 +117,7 @@ export const HostBookingsN = ({ onViewBooking }) => {
                                         <small className="host-booking-dateN">{formatDate(booking.date)}</small>
                                     </div>
 
-                                    <span className={`host-booking-pill rounded-pill text-center ${booking.status.toLowerCase()}`}>
+                                    <span className={`host-booking-pill rounded-pill text-center ${String(booking.filterStatus || booking.status).toLowerCase()}`}>
                                         {booking.status}
                                     </span>
 
@@ -97,7 +138,7 @@ export const HostBookingsN = ({ onViewBooking }) => {
 
                         <div className="d-flex justify-content-between gap-3 small mb-2">
                             <span>Selected Date</span>
-                            <span>{selectedDate ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }) : '—'}</span>
+                            <span>{selectedDate ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : '—'}</span>
                         </div>
                         <div className="d-flex justify-content-between gap-3 small mb-2">
                             <span>Guest’s Name</span>

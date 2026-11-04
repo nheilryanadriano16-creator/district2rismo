@@ -1,9 +1,11 @@
 ﻿import logo from '../../images/2Rismo Logo.png'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { SignUpN } from './SignUpN.jsx'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '../../firebase'
+import { getDashboardPath } from '../../utils/roles'
 
 export const LoginN = ({ onClose }) => {
     const [email, setEmail] = useState('')
@@ -15,6 +17,12 @@ export const LoginN = ({ onClose }) => {
     const [loading, setLoading] = useState(false)
 
     const { login } = useAuth()
+    const navigate = useNavigate()
+
+    const finishAuth = (role) => {
+        onClose?.()
+        navigate(getDashboardPath(role), { replace: true })
+    }
 
     const handleContinue = async (event) => {
         event.preventDefault()
@@ -25,8 +33,8 @@ export const LoginN = ({ onClose }) => {
         if (showPasswordInput) {
             try {
                 setLoading(true)
-                await login(email, password)
-                onClose?.()
+                const { role } = await login(email, password)
+                finishAuth(role)
             } catch (err) {
                 console.error('Login Error:', err)
                 let message = 'An error occurred during login. Please try again.'
@@ -35,6 +43,8 @@ export const LoginN = ({ onClose }) => {
                     message = 'Incorrect password. Please try again.'
                 } else if (err.code === 'auth/too-many-requests') {
                     message = 'Access temporarily disabled due to many failed login attempts. Try again later.'
+                } else if (err.code === 'auth/account-deactivated') {
+                    message = 'This account has been deactivated. Contact support if you need help.'
                 }
                 setError(message)
             } finally {
@@ -64,12 +74,12 @@ export const LoginN = ({ onClose }) => {
     }
 
     if (showSignUp) {
-        return <SignUpN email={email} onBack={() => setShowSignUp(false)} onClose={onClose} />
+        return <SignUpN email={email} onBack={() => setShowSignUp(false)} onClose={onClose} onAuthenticated={finishAuth} />
     }
 
-    return (
+    const card = (
         <div className="login-cardN rounded-5 shadow p-4 p-md-5">
-            <button type="button" className="btn-close btn-close-white position-absolute top-0 end-0 m-3" aria-label="Close" onClick={onClose} />
+            <button type="button" className="btn-close btn-close-white position-absolute top-0 end-0 m-3" aria-label="Close" onClick={() => onClose ? onClose() : navigate('/')} />
             <img src={logo} alt="Logo" className="login-logoN mb-3" />
             <h1 className="h2N color fw-bold text-center mb-4 text-white">Log in or sign up</h1>
             
@@ -132,4 +142,14 @@ export const LoginN = ({ onClose }) => {
             </form>
         </div>
     )
+
+    if (!onClose) {
+        return (
+            <div className="min-vh-100 d-flex align-items-center justify-content-center bg-dark p-3">
+                {card}
+            </div>
+        )
+    }
+
+    return card
 }

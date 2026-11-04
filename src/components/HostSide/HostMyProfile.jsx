@@ -1,26 +1,50 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { saveHostProfile } from '../../utils/hostData'
+import { useNotification } from '../../context/NotificationContext'
 
-const initialProfile = {
-    firstName: 'Mj',
-    dateOfBirth: '2006-03-24',
-    lastName: 'Massalang',
-    phoneNumber: '0994 951 7001',
+const emptyProfile = {
+    firstName: '',
+    dateOfBirth: '',
+    lastName: '',
+    phoneNumber: '',
 }
 
 export function HostMyProfile() {
-    const [profile, setProfile] = useState(initialProfile)
-    const [draft, setDraft] = useState(initialProfile)
+    const { currentUser, userData, updateUserData } = useAuth()
+    const { showNotification } = useNotification()
+    const [profile, setProfile] = useState(emptyProfile)
+    const [draft, setDraft] = useState(emptyProfile)
     const [isEditing, setIsEditing] = useState(false)
+
+    useEffect(() => {
+        const nextProfile = {
+            firstName: userData?.firstName || '',
+            lastName: userData?.lastName || '',
+            dateOfBirth: userData?.dateOfBirth || '',
+            phoneNumber: userData?.phoneNumber || '',
+        }
+        setProfile(nextProfile)
+        setDraft(nextProfile)
+    }, [userData])
 
     const handleChange = (event) => {
         const { name, value } = event.target
         setDraft((current) => ({ ...current, [name]: value }))
     }
 
-    const handleSubmit = (event) => {
+    const handleSubmit = async (event) => {
         event.preventDefault()
-        setProfile(draft)
-        setIsEditing(false)
+        try {
+            await saveHostProfile(currentUser?.uid, draft)
+            setProfile(draft)
+            updateUserData?.(draft)
+            setIsEditing(false)
+            showNotification('Profile updated.', 'success')
+        } catch (error) {
+            console.error('Error saving host profile:', error)
+            showNotification(error.message || 'Could not save profile.', 'danger')
+        }
     }
 
     const fields = [

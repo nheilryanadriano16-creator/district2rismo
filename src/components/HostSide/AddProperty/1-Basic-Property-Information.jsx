@@ -30,7 +30,18 @@ export const BasicPropInfo = ({ onBack, onNext, property, onPropertyChange, edit
 
             <h1 className="h5 fw-bold text-warning mb-3">1. Basic Property Information</h1>
 
-            <form onSubmit={(event) => { event.preventDefault(); onNext?.() }}>
+            <form onSubmit={(event) => {
+                event.preventDefault()
+                onPropertyChange?.({
+                    name,
+                    municipality,
+                    address,
+                    shortDescription,
+                    description: fullDescription,
+                    location: `${municipality}, Bulacan`,
+                })
+                onNext?.()
+            }}>
                 <div className="row g-4">
                     <div className="col-12 col-md-6">
                         <div className="mb-3">

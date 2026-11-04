@@ -1,7 +1,9 @@
 ﻿import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { getDashboardPath } from '../../utils/roles'
 
-export const SignUpN = ({ email: initialEmail = '', onBack, onClose }) => {
+export const SignUpN = ({ email: initialEmail = '', onBack, onClose, onAuthenticated }) => {
     const [showPassword, setShowPassword] = useState(false)
     const [email, setEmail] = useState(initialEmail)
     const [role, setRole] = useState('customer')
@@ -9,6 +11,7 @@ export const SignUpN = ({ email: initialEmail = '', onBack, onClose }) => {
     const [loading, setLoading] = useState(false)
 
     const { signup } = useAuth()
+    const navigate = useNavigate()
 
     const handleSubmit = async (event) => {
         event.preventDefault()
@@ -18,13 +21,18 @@ export const SignUpN = ({ email: initialEmail = '', onBack, onClose }) => {
 
         try {
             setLoading(true)
-            await signup(email, data.password, {
+            const { role: createdRole } = await signup(email, data.password, {
                 firstName: data.firstName,
                 lastName: data.lastName,
                 dateOfBirth: data.dateOfBirth,
                 role: role,
             })
-            onClose?.()
+            if (onAuthenticated) {
+                onAuthenticated(createdRole)
+            } else {
+                onClose?.()
+                navigate(getDashboardPath(createdRole), { replace: true })
+            }
         } catch (err) {
             console.error('Sign Up Error:', err)
             setError(err.message.replace('Firebase: ', ''))
