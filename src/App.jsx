@@ -42,15 +42,15 @@ function App() {
           )}
 
           {/* Root route with auto-redirect for Admin */}
-          <Route 
-            path="/" 
+          <Route
+            path="/"
             element={
               <RoleBasedRedirect>
                 <Home />
               </RoleBasedRedirect>
-            } 
+            }
           />
-          
+
           <Route path="/destination" element={<Destinations />} />
           <Route path="/resorts/:id" element={<PlaceDetails />} />
           <Route path="/destinationdetails" element={<PlaceDetails />} />
@@ -65,12 +65,7 @@ function App() {
 
           {/* Host specific routes */}
           <Route element={<ProtectedRoutes allowedRoles={["host"]} />}>
-            <Route path="/host/confirm-booking" element={<ConfirmBooking />} />
-            <Route path="/host/bookings" element={<HostN initialSection="Bookings" />} />
-            <Route path="/host/view-property" element={<HostViewPropertyPage />} />
-            <Route path="/host/edit-property" element={<HostEditPropertyPage />} />
             <Route path="/host/profile" element={<HostMyProfilePage />} />
-            <Route path="/host/properties" element={<HostN initialSection="Properties" />} />
             <Route path="/host/*" element={<HostN />} />
           </Route>
 

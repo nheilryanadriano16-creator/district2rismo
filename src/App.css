@@ -4013,6 +4013,82 @@ textarea:-webkit-autofill:focus {
 }
 
 /* Stripe payment success popup */
+.nav-profile-dialogN {
+    width: min(34.5rem, calc(100vw - 1.5rem));
+    max-width: none;
+}
+
+.nav-profile-modalN {
+    border: 1px solid #38362D;
+    border-radius: .75rem;
+    background-color: #38362D;
+    color: #E4DFD8;
+}
+
+.nav-profile-headerN {
+    border-bottom: 1px solid rgb(255 178 0 / 25%);
+}
+
+.nav-profile-titleN {
+    color: #FFB200;
+    font-weight: 700;
+}
+
+.nav-profile-bodyN {
+    padding: 1.5rem 1.85rem 2rem;
+}
+
+.nav-profile-labelN {
+    color: #C8C5BD;
+}
+
+.nav-profile-primaryN,
+.nav-profile-secondaryN,
+.nav-profile-logoutN {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.9rem;
+    border-radius: 50rem;
+    text-align: center;
+    text-decoration: none;
+}
+
+.nav-profile-primaryN {
+    background-color: #FFB200;
+    color: #24221B;
+}
+
+.nav-profile-primaryN:hover,
+.nav-profile-primaryN:focus-visible {
+    background-color: #E9A300;
+    color: #24221B;
+}
+
+.nav-profile-secondaryN {
+    border: 1px solid #FFB200;
+    color: #FFB200;
+}
+
+.nav-profile-secondaryN:hover,
+.nav-profile-secondaryN:focus-visible {
+    border-color: #FFB200;
+    background-color: rgb(255 178 0 / 10%);
+    color: #FFB200;
+}
+
+.nav-profile-logoutN {
+    border: 1px solid #DC3545;
+    color: #DC3545;
+}
+
+.nav-profile-logoutN:hover,
+.nav-profile-logoutN:focus-visible {
+    border-color: #DC3545;
+    background-color: #DC3545;
+    color: #fff;
+}
+
 .payment-success-dialogN {
     width: min(34.5rem, calc(100vw - 1.5rem));
     max-width: none;
@@ -4123,9 +4199,6 @@ textarea:-webkit-autofill:focus {
     background-color: #FFB200;
     color: #24221B;
 }
-
-
-
 
 
 

@@ -26,6 +26,14 @@ export const ProtectedRoutes = ({ allowedRoles }) => {
     );
   }
 
+  if (userRole === null) {
+    return (
+      <div className="d-flex justify-content-center align-items-center vh-100">
+        Loading account...
+      </div>
+    );
+  }
+
   const isAllowed =
     !allowedRoles ||
     allowedRoles.includes(userRole) ||

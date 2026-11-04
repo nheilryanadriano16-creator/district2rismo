@@ -73,41 +73,41 @@ function NavBar() {
                 </Modal.Body>
             </Modal>
 
-            <Modal show={showUserModal} onHide={() => setShowUserModal(false)} centered contentClassName="bg-dark text-white rounded-4 border border-secondary">
-                <Modal.Header closeButton closeVariant="white" className="border-secondary">
-                    <Modal.Title className="fw-bold">User Account</Modal.Title>
+            <Modal show={showUserModal} onHide={() => setShowUserModal(false)} centered dialogClassName="nav-profile-dialogN" contentClassName="nav-profile-modalN">
+                <Modal.Header closeButton closeVariant="white" className="nav-profile-headerN">
+                    <Modal.Title className="nav-profile-titleN">User Account</Modal.Title>
                 </Modal.Header>
-                <Modal.Body className="p-4">
+                <Modal.Body className="nav-profile-bodyN">
                     {currentUser ? (
                         <div className="vstack gap-3">
                             <div>
-                                <span className="text-secondary small">Name</span>
-                                <h5 className="fw-bold mb-0">{userData?.firstName} {userData?.lastName} </h5>
+                                <span className="nav-profile-labelN small">Name</span>
+                                <h5 className="fw-bold mb-0">{userData?.firstName} {userData?.lastName}</h5>
                             </div>
                             <div>
-                                <span className="text-secondary small">Email</span>
+                                <span className="nav-profile-labelN small">Email</span>
                                 <p className="mb-0">{currentUser.email}</p>
                             </div>
                             <div>
-                                <span className="text-secondary small">Role</span>
+                                <span className="nav-profile-labelN small">Role</span>
                                 <p className="mb-0 text-capitalize">{userRole}</p>
                             </div>
                             <div className="d-flex flex-column gap-2 mt-3">
                                 {userRole === 'host' && (
-                                    <Link to="/host" className="btn btn-warning w-100 fw-bold" onClick={() => setShowUserModal(false)}>Host Dashboard</Link>
+                                    <Link to="/host" className="btn nav-profile-primaryN w-100 fw-bold" onClick={() => setShowUserModal(false)}>Host Dashboard</Link>
                                 )}
                                 {userRole === 'admin' && (
-                                    <Link to="/admin" className="btn btn-warning w-100 fw-bold" onClick={() => setShowUserModal(false)}>Admin Dashboard</Link>
+                                    <Link to="/admin" className="btn nav-profile-primaryN w-100 fw-bold" onClick={() => setShowUserModal(false)}>Admin Dashboard</Link>
                                 )}
                                 <div className="d-flex gap-2">
                                     <Link
                                         to={userRole === 'host' ? '/host/profile' : userRole === 'admin' ? '/admin/profile' : '/account'}
-                                        className="btn btn-outline-warning w-50 fw-bold"
+                                        className="btn nav-profile-secondaryN w-50 fw-bold"
                                         onClick={() => setShowUserModal(false)}
                                     >
                                         Manage Profile
                                     </Link>
-                                    <button className="btn btn-outline-danger w-50" onClick={() => { logout(); setShowUserModal(false); }}>Log Out</button>
+                                    <button className="btn nav-profile-logoutN w-50" onClick={() => { logout(); setShowUserModal(false); }}>Log Out</button>
                                 </div>
                             </div>
                         </div>
