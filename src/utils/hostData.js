@@ -8,16 +8,16 @@ import {
   setDoc,
   updateDoc,
 } from 'firebase/firestore'
-import { getDownloadURL, ref, uploadBytes, uploadString } from 'firebase/storage'
 import { sendPasswordResetEmail } from 'firebase/auth'
-import { auth, db, storage } from '../firebase'
+import { auth, db } from '../firebase'
 
 const PLATFORM_FEE_RATE = 0.03
 
 const DEFAULT_TOUR_SETTINGS = {
-  day: { checkIn: '08:00 AM', checkOut: '05:00 PM', rate: '5000' },
-  night: { checkIn: '05:00 PM', checkOut: '08:00 AM', rate: '7000' },
+  day: { enabled: true, checkIn: '08:00 AM', checkOut: '05:00 PM', rate: '5000' },
+  night: { enabled: false, checkIn: '05:00 PM', checkOut: '08:00 AM', rate: '7000' },
   flexible: {
+    enabled: false,
     checkIns: ['08:00 AM'],
     checkOuts: ['05:00 PM'],
     rate: '5000',
@@ -66,7 +66,8 @@ function sanitizeForFirestore(value) {
   if (typeof Blob !== 'undefined' && value instanceof Blob) return undefined
   if (typeof value === 'function') return undefined
   if (typeof value === 'string') {
-    return value.startsWith('blob:') ? '' : value
+    if (value.startsWith('blob:') || value.startsWith('data:')) return ''
+    return value
   }
   if (Array.isArray(value)) {
     return value
@@ -162,90 +163,49 @@ async function readCollection(name) {
   }
 }
 
-async function uploadDataUrl(path, dataUrl) {
-  const storageRef = ref(storage, path)
-  await uploadString(storageRef, dataUrl, 'data_url')
-  return getDownloadURL(storageRef)
-}
-
-async function uploadFile(path, file) {
-  const storageRef = ref(storage, path)
-  await uploadBytes(storageRef, file)
-  return getDownloadURL(storageRef)
-}
-
-async function persistPhoto(path, photo, index) {
-  const preview = photo?.preview || photo?.url || photo?.src || ''
-  let url = typeof preview === 'string' && !preview.startsWith('blob:') ? preview : ''
-  try {
-    if (typeof File !== 'undefined' && photo?.file instanceof File) {
-      url = await uploadFile(`${path}/${photo?.id || index}-${photo.file.name}`, photo.file)
-    } else if (typeof preview === 'string' && preview.startsWith('data:')) {
-      url = await uploadDataUrl(`${path}/${photo?.id || index}`, preview)
-    }
-  } catch (error) {
-    console.error('Could not upload property photo:', error)
-  }
+function persistPhoto(photo, index) {
+  const name = photo?.name || photo?.file?.name || `photo-${index}`
+  const localPath = photo?.localPath || `/uploads/${name}`
   return {
     id: photo?.id || `${index}`,
-    name: photo?.name || photo?.file?.name || 'Photo',
+    name,
     size: photo?.size || photo?.file?.size || 0,
-    preview: url,
+    preview: localPath,
+    localPath,
   }
 }
 
-async function persistVerification(path, files = {}) {
-  const entries = await Promise.all(
-    Object.entries(files).map(async ([id, file]) => {
-      if (!file) return [id, null]
-      if (typeof File !== 'undefined' && file instanceof File) {
-        try {
-          const url = await uploadFile(`${path}/${id}-${file.name}`, file)
-          return [id, { name: file.name, type: file.type, size: file.size, url }]
-        } catch (error) {
-          console.error('Could not upload verification file:', error)
-          return [id, { name: file.name, type: file.type, size: file.size }]
-        }
-      }
-      return [id, {
-        name: file.name || id,
-        type: file.type || '',
-        size: file.size || 0,
-        url: file.url || (typeof file.preview === 'string' && !file.preview.startsWith('blob:') ? file.preview : ''),
-      }]
-    })
-  )
+function persistVerification(files = {}) {
+  const entries = Object.entries(files).map(([id, file]) => {
+    if (!file) return [id, null]
+    const name = file.name || id
+    const localPath = file.localPath || `/uploads/${name}`
+    return [id, {
+      name,
+      type: file.type || '',
+      size: file.size || 0,
+      localPath,
+      url: localPath,
+    }]
+  })
   return Object.fromEntries(entries.filter(([, value]) => value))
 }
 
-async function persistMedia(path, mediaPhotos = {}) {
-  const groups = await Promise.all(
-    Object.entries(mediaPhotos).map(async ([groupId, photos]) => [
-      groupId,
-      await Promise.all((photos || []).map((photo, index) => persistPhoto(`${path}/${groupId}`, photo, index))),
-    ])
-  )
+function persistMedia(mediaPhotos = {}) {
+  const groups = Object.entries(mediaPhotos).map(([groupId, photos]) => [
+    groupId,
+    (photos || []).map((photo, index) => persistPhoto(photo, index)),
+  ])
   return Object.fromEntries(groups)
 }
 
-async function persistBedrooms(path, bedrooms = []) {
-  return Promise.all(
-    bedrooms.map(async (bedroom, index) => {
-      let photo = bedroom.photo || ''
-      try {
-        if (typeof photo === 'string' && photo.startsWith('data:')) {
-          photo = await uploadDataUrl(`${path}/bedroom-${bedroom.id || index}`, photo)
-        } else if (typeof photo === 'string' && photo.startsWith('blob:')) {
-          photo = ''
-        }
-      } catch (error) {
-        console.error('Could not upload bedroom photo:', error)
-      }
-      const rest = { ...bedroom }
-      delete rest.file
-      return { ...rest, photo }
-    })
-  )
+function persistBedrooms(bedrooms = []) {
+  return bedrooms.map((bedroom) => {
+    const rest = { ...bedroom }
+    delete rest.file
+    delete rest.photo
+    return { ...rest, photo: '' }
+  })
 }
 
 export async function fetchHostProperties(uid, identity = {}) {
@@ -263,14 +223,13 @@ export async function saveHostProperty(uid, userData, property, mode = 'add') {
     ? doc(db, 'properties', property.id)
     : doc(collection(db, 'properties'))
   const propertyId = propertyRef.id
-  const mediaPath = `properties/${uid}/${propertyId}`
-  const mediaPhotos = await persistMedia(mediaPath, property?.mediaPhotos || {})
-  const bedrooms = await persistBedrooms(mediaPath, property?.bedrooms || [])
-  const verificationFiles = await persistVerification(`${mediaPath}/verification`, property?.verificationFiles || {})
-  const cover = mediaPhotos.cover?.[0]?.preview || property?.image || property?.imageUrl || ''
-  const galleryImages = (mediaPhotos.gallery || [])
-    .map((photo) => photo.preview)
-    .filter((url) => url && !String(url).startsWith('blob:'))
+
+  const mediaPhotos = persistMedia(property?.mediaPhotos || {})
+  const bedrooms = persistBedrooms(property?.bedrooms || [])
+  const verificationFiles = persistVerification(property?.verificationFiles || {})
+  
+  const cover = mediaPhotos.cover?.[0]?.localPath || ''
+  const galleryImages = (mediaPhotos.gallery || []).map((photo) => photo.localPath)
   const location = property?.location || (property?.municipality ? `${property.municipality}, Bulacan` : '')
   const ownerName = ownerNameFrom(userData)
 
@@ -283,8 +242,8 @@ export async function saveHostProperty(uid, userData, property, mode = 'add') {
     description: property?.description || '',
     amenities: property?.amenities || [],
     mediaPhotos,
-    image: cover.startsWith?.('blob:') ? '' : cover,
-    imageUrl: cover.startsWith?.('blob:') ? '' : cover,
+    image: cover,
+    imageUrl: cover,
     galleryImages,
     tourSettings: property?.tourSettings || DEFAULT_TOUR_SETTINGS,
     bedrooms,

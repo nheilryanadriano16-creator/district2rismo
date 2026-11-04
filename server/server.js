@@ -3,6 +3,9 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const Stripe = require('stripe')
+const multer = require('multer')
+const path = require('path')
+const fs = require('fs')
 
 const app = express()
 const PORT = process.env.PORT || 4242
@@ -17,8 +20,46 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 app.use(cors({ origin: FRONTEND_URL }))
 app.use(express.json())
 
+// Ensure public/uploads directory exists on disk
+const uploadDir = path.join(__dirname, '../public/uploads')
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true })
+}
+
+// Configure Multer storage to save files into public/uploads with original filenames
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadDir)
+    },
+    filename: (req, file, cb) => {
+        cb(null, file.originalname)
+    },
+})
+
+const upload = multer({ storage })
+
+// Static middleware to serve files from public/uploads
+app.use('/uploads', express.static(uploadDir))
+
 app.get('/', (req, res) => {
-    res.send('District2Rismo payment API is running.')
+    res.send('District2Rismo payment & upload API is running.')
+})
+
+// File upload endpoint for local disk storage
+app.post('/api/upload', upload.single('file'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded.' })
+        }
+        return res.json({
+            message: 'File uploaded successfully',
+            filePath: `/uploads/${req.file.filename}`,
+            fileName: req.file.filename,
+        })
+    } catch (error) {
+        console.error('File upload error:', error.message)
+        return res.status(500).json({ error: 'Could not upload file.' })
+    }
 })
 
 app.post('/create-checkout-session', async (req, res) => {
@@ -125,5 +166,5 @@ app.get('/verify-checkout-session', async (req, res) => {
 })
 
 app.listen(PORT, () => {
-    console.log(`Payment API running at http://localhost:${PORT}`)
+    console.log(`API server running at http://localhost:${PORT}`)
 })

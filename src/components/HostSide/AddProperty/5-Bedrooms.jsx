@@ -20,6 +20,7 @@ const sampleBedroom = {
     ],
     amenities: amenityOptions,
     photo: sampleBedroomPhoto,
+    localPath: '',
 }
 
 export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, editNavigation }) => {
@@ -31,22 +32,36 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
     const [amenities, setAmenities] = useState([])
     const [editingId, setEditingId] = useState(null)
 
-    const handlePhotoChange = (event) => {
+    const uploadFileToServer = async (file) => {
+        const formData = new FormData()
+        formData.append('file', file)
+        try {
+            const response = await fetch('http://localhost:4242/api/upload', {
+                method: 'POST',
+                body: formData,
+            })
+            const data = await response.json()
+            return data.filePath || `/uploads/${file.name}`
+        } catch (error) {
+            console.error('Local upload failed:', error)
+            return `/uploads/${file.name}`
+        }
+    }
+
+    const handlePhotoChange = async (event) => {
         const file = event.target.files?.[0]
         if (!file) return
 
-        const reader = new FileReader()
-        reader.onload = () => {
-            setPhoto({
-                name: file.name,
-                size: file.size,
-                preview: reader.result,
-            })
-        }
-        reader.onerror = () => {
-            console.error('Could not read the bedroom photo.')
-        }
-        reader.readAsDataURL(file)
+        const localPath = await uploadFileToServer(file)
+        const objectUrl = URL.createObjectURL(file)
+
+        setPhoto({
+            name: file.name,
+            size: file.size,
+            preview: objectUrl,
+            localPath,
+        })
+
         event.target.value = ''
     }
 
@@ -86,6 +101,7 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
             beds,
             amenities,
             photo: photo?.preview ?? existingBedroom?.photo ?? sampleBedroomPhoto,
+            localPath: photo?.localPath ?? existingBedroom?.localPath ?? '',
             photoName: photo?.name ?? existingBedroom?.photoName,
             photoSize: photo?.size ?? existingBedroom?.photoSize,
         }
@@ -149,7 +165,7 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
             <form onSubmit={saveBedroom}>
                 <div className="row g-4">
                     <div className="col-12 col-md-5">
-                        <label className="form-control host-bedroom-uploadN d-flex align-items-center justify-content-between">
+                        <label className="form-control host-bedroom-uploadN d-flex align-items-center justify-content-between cursor-pointer">
                             <span>Upload Bedroom Photo</span>
                             <i className="bi bi-upload" aria-hidden="true" />
                             <input
@@ -166,6 +182,7 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
                                     className="host-photo-thumbnailN rounded-1"
                                     src={photo.preview}
                                     alt=""
+                                    style={{ width: '32px', height: '32px', objectFit: 'cover' }}
                                 />
                                 <span className="small text-truncate flex-grow-1">
                                     <span className="text-warning">{photo.name}</span>
@@ -304,6 +321,7 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
                                             className="host-bedroom-imageN rounded-1 flex-shrink-0"
                                             src={bedroom.photo}
                                             alt=""
+                                            style={{ width: '48px', height: '48px', objectFit: 'cover' }}
                                         />
                                         <div className="min-w-0 flex-grow-1">
                                             <h3 className="small text-warning mb-0">{bedroom.name}</h3>

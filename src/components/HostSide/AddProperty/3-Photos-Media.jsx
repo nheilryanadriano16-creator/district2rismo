@@ -60,12 +60,37 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
         }
     }, [])
 
-    const addPhotos = (group, fileList) => {
-        const selectedFiles = Array.from(fileList).map((file) => ({
-            id: `${file.name}-${file.lastModified}-${Math.random()}`,
-            file,
-            preview: URL.createObjectURL(file),
-        }))
+    const uploadFileToServer = async (file) => {
+        const formData = new FormData()
+        formData.append('file', file)
+        try {
+            const response = await fetch('http://localhost:4242/api/upload', {
+                method: 'POST',
+                body: formData,
+            })
+            const data = await response.json()
+            return data.filePath || `/uploads/${file.name}`
+        } catch (error) {
+            console.error('Local upload failed:', error)
+            return `/uploads/${file.name}`
+        }
+    }
+
+    const addPhotos = async (group, fileList) => {
+        const filesArray = Array.from(fileList)
+        const selectedFiles = []
+
+        for (let i = 0; i < filesArray.length; i++) {
+            const file = filesArray[i]
+            await uploadFileToServer(file)
+            const objectUrl = URL.createObjectURL(file)
+            selectedFiles.push({
+                id: `${file.name}-${file.lastModified}-${Math.random()}`,
+                file,
+                preview: objectUrl,
+            })
+        }
+
         selectedFiles.forEach((photo) => objectUrls.current.add(photo.preview))
 
         const updatedPhotos = {
@@ -161,6 +186,7 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
                                     className="host-photo-thumbnailN rounded-1"
                                     src={photo.preview}
                                     alt=""
+                                    style={{ width: '32px', height: '32px', objectFit: 'cover' }}
                                 />
                                 <span className="small text-truncate flex-grow-1">
                                     <span className="text-warning">{photo.file.name}</span>

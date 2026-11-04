@@ -65,6 +65,7 @@ export function HostAddProperty({ onBack, onNext, onReject, onApprove, onRemoveU
                 : {}),
         }))
     }
+
     const editNavigation = mode === 'edit' || isReview ? (
         <HostViewPropertyNav
             activeStep={step}
@@ -172,7 +173,7 @@ export function HostAddProperty({ onBack, onNext, onReject, onApprove, onRemoveU
             </fieldset>
 
             {isReview && (
-                <div className="d-flex flex-wrap justify-content-end gap-3 mt-3  admin-property-review-actionsN">
+                <div className="d-flex flex-wrap justify-content-end gap-3 mt-3 admin-property-review-actionsN">
                     <button
                         type="button"
                         className="btn rounded-pill admin-property-review-rejectN admin-user-account-buttonN"
@@ -193,20 +194,3 @@ export function HostAddProperty({ onBack, onNext, onReject, onApprove, onRemoveU
         </main>
     )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

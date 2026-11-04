@@ -1,4 +1,53 @@
-import { useState } from 'react'
+import { useState, useMemo, useRef } from 'react'
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import L from 'leaflet'
+
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
+import markerIcon from 'leaflet/dist/images/marker-icon.png'
+import markerShadow from 'leaflet/dist/images/marker-shadow.png'
+
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+    iconUrl: markerIcon,
+    iconRetinaUrl: markerIcon2x,
+    shadowUrl: markerShadow,
+})
+
+function LocationMarker({ position, setPosition, onPropertyChange }) {
+    const markerRef = useRef(null)
+
+    useMapEvents({
+        click(e) {
+            const newCoords = { lat: e.latlng.lat, lng: e.latlng.lng }
+            setPosition(newCoords)
+            onPropertyChange?.({ coordinates: newCoords })
+        },
+    })
+
+    const eventHandlers = useMemo(
+        () => ({
+            dragend() {
+                const marker = markerRef.current
+                if (marker != null) {
+                    const latLng = marker.getLatLng()
+                    const newCoords = { lat: latLng.lat, lng: latLng.lng }
+                    setPosition(newCoords)
+                    onPropertyChange?.({ coordinates: newCoords })
+                }
+            },
+        }),
+        [setPosition, onPropertyChange]
+    )
+
+    return (
+        <Marker
+            draggable={true}
+            eventHandlers={eventHandlers}
+            position={[position.lat, position.lng]}
+            ref={markerRef}
+        />
+    )
+}
 
 export const BasicPropInfo = ({ onBack, onNext, property, onPropertyChange, editNavigation }) => {
     const [name, setName] = useState(property?.name || 'Maldives Resort')
@@ -13,6 +62,8 @@ export const BasicPropInfo = ({ onBack, onNext, property, onPropertyChange, edit
         property?.description || 'Lorem ipsum dolor sit amet consectetur adipiscing elit at magna voluptate distinctio qui in omnis dolor in id placeat enim in praesentium pariatur laboris sint veniam sit ut qui duis sunt aliquip repellendus'
     )
 
+    const [coordinates, setCoordinates] = useState(property?.coordinates || { lat: 14.9547, lng: 120.9575 })
+
     const countWords = (text) => text.trim() ? text.trim().split(/\s+/).length : 0
     const update = (field, value) => onPropertyChange?.({ [field]: value })
 
@@ -24,7 +75,7 @@ export const BasicPropInfo = ({ onBack, onNext, property, onPropertyChange, edit
                     <li className="breadcrumb-item">
                         <button type="button" className="btn btn-link p-0 host-add-property-crumbN" onClick={onBack}>Properties</button>
                     </li>
-                    <li className="breadcrumb-item active  text-warning" aria-current="page">Add Property</li>
+                    <li className="breadcrumb-item active text-warning" aria-current="page">Add Property</li>
                 </ol>
             </nav>
 
@@ -39,6 +90,7 @@ export const BasicPropInfo = ({ onBack, onNext, property, onPropertyChange, edit
                     shortDescription,
                     description: fullDescription,
                     location: `${municipality}, Bulacan`,
+                    coordinates,
                 })
                 onNext?.()
             }}>
@@ -77,8 +129,19 @@ export const BasicPropInfo = ({ onBack, onNext, property, onPropertyChange, edit
                             <input id="property-address" className="form-control host-add-property-inputN" value={address} onChange={(event) => { setAddress(event.target.value); update('address', event.target.value) }} />
                         </div>
 
-                        <label className="form-label small mb-2">Google Maps Location/Map Pin</label>
-                        <div className="host-add-property-mapN rounded-4" role="img" aria-label="Map location placeholder" />
+                        <label className="form-label small mb-2">Location Map Pin (Click or drag marker)</label>
+                        <div className="rounded-4 overflow-hidden" style={{ height: '300px' }}>
+                            <MapContainer center={[coordinates.lat, coordinates.lng]} zoom={14} style={{ width: '100%', height: '100%' }}>
+                                <TileLayer
+                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                />
+                                <LocationMarker position={coordinates} setPosition={setCoordinates} onPropertyChange={onPropertyChange} />
+                            </MapContainer>
+                        </div>
+                        <div className="small text-muted mt-1">
+                            Lat: {coordinates.lat.toFixed(4)}, Lng: {coordinates.lng.toFixed(4)}
+                        </div>
                     </div>
                 </div>
 

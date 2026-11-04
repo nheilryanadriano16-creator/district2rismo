@@ -1,18 +1,71 @@
 import { useState } from 'react'
 
 const initialTourSettings = {
-    day: { checkIn: '08:00 AM', checkOut: '05:00 PM', rate: '5000' },
-    night: { checkIn: '05:00 PM', checkOut: '08:00 AM', rate: '7000' },
+    day: { enabled: true, checkIn: '08:00 AM', checkOut: '05:00 PM', rate: '5000' },
+    night: { enabled: false, checkIn: '05:00 PM', checkOut: '08:00 AM', rate: '7000' },
     flexible: {
+        enabled: false,
         checkIns: ['08:00 AM'],
         checkOuts: ['05:00 PM'],
         rate: '5000',
     },
 }
 
-
 export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, onPropertyChange, editNavigation }) => {
-    const [tours, setTours] = useState(property?.tourSettings || initialTourSettings)
+    const parseTourSettings = (savedTours) => {
+        if (!savedTours) return initialTourSettings
+        return {
+            day: {
+                enabled: savedTours.day?.enabled ?? false,
+                checkIn: savedTours.day?.checkIn || '08:00 AM',
+                checkOut: savedTours.day?.checkOut || '05:00 PM',
+                rate: savedTours.day?.rate || '5000',
+            },
+            night: {
+                enabled: savedTours.night?.enabled ?? false,
+                checkIn: savedTours.night?.checkIn || '05:00 PM',
+                checkOut: savedTours.night?.checkOut || '08:00 AM',
+                rate: savedTours.night?.rate || '7000',
+            },
+            flexible: {
+                enabled: savedTours.flexible?.enabled ?? false,
+                checkIns: savedTours.flexible?.checkIns || ['08:00 AM'],
+                checkOuts: savedTours.flexible?.checkOuts || ['05:00 PM'],
+                rate: savedTours.flexible?.rate || '5000',
+            },
+        }
+    }
+
+    const [tours, setTours] = useState(parseTourSettings(property?.tourSettings))
+
+    const buildPayload = (currentTours) => {
+        const payload = {}
+        if (currentTours.day?.enabled) {
+            payload.day = {
+                enabled: true,
+                checkIn: currentTours.day.checkIn,
+                checkOut: currentTours.day.checkOut,
+                rate: currentTours.day.rate,
+            }
+        }
+        if (currentTours.night?.enabled) {
+            payload.night = {
+                enabled: true,
+                checkIn: currentTours.night.checkIn,
+                checkOut: currentTours.night.checkOut,
+                rate: currentTours.night.rate,
+            }
+        }
+        if (currentTours.flexible?.enabled) {
+            payload.flexible = {
+                enabled: true,
+                checkIns: currentTours.flexible.checkIns,
+                checkOuts: currentTours.flexible.checkOuts,
+                rate: currentTours.flexible.rate,
+            }
+        }
+        return payload
+    }
 
     const updateTour = (tour, field, value) => {
         const updated = {
@@ -20,7 +73,16 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
             [tour]: { ...tours[tour], [field]: value },
         }
         setTours(updated)
-        onPropertyChange?.({ tourSettings: updated })
+        onPropertyChange?.({ tourSettings: buildPayload(updated) })
+    }
+
+    const toggleTourEnabled = (tourKey) => {
+        const updated = {
+            ...tours,
+            [tourKey]: { ...tours[tourKey], enabled: !tours[tourKey].enabled },
+        }
+        setTours(updated)
+        onPropertyChange?.({ tourSettings: buildPayload(updated) })
     }
 
     const updateFlexibleTimes = (field, update) => {
@@ -32,12 +94,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
             },
         }
         setTours(updated)
-        onPropertyChange?.({ tourSettings: updated })
-    }
-
-    const addFlexibleTime = (field) => {
-        const defaultTime = field === 'checkIns' ? '08:00 AM' : '05:00 PM'
-        updateFlexibleTimes(field, (times) => [...times, defaultTime])
+        onPropertyChange?.({ tourSettings: buildPayload(updated) })
     }
 
     const removeFlexibleTime = (field, indexToRemove) => {
@@ -53,7 +110,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
     }
 
     const renderTour = (key, title) => {
-        const tour = tours[key]
+        const tour = tours[key] || {}
         const isFlexible = key === 'flexible'
 
         return (
@@ -61,12 +118,12 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                 <div className="form-check mb-3">
                     <input
                         className="form-check-input host-tour-radioN"
-                        type="radio"
-                        name="tour-type"
+                        type="checkbox"
                         id={`tour-${key}`}
-                        value={key}
+                        checked={tour.enabled || false}
+                        onChange={() => toggleTourEnabled(key)}
                     />
-                    <label className="form-check-label" htmlFor={`tour-${key}`}>
+                    <label className="form-check-label text-warning fw-semibold" htmlFor={`tour-${key}`}>
                         {title}
                     </label>
                 </div>
@@ -80,7 +137,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                             id={`${key}-checkin`}
                             className="form-control host-add-property-inputN mb-2"
                             type="text"
-                            value={tour.checkIn}
+                            value={tour.checkIn || ''}
                             readOnly
                         />
 
@@ -91,7 +148,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                             id={`${key}-checkout`}
                             className="form-control host-add-property-inputN mb-2"
                             type="text"
-                            value={tour.checkOut}
+                            value={tour.checkOut || ''}
                             readOnly
                         />
                     </>
@@ -99,7 +156,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                     <>
                         <label className="form-label small mb-1">Check-in</label>
 
-                        {tour.checkIns.map((time, index) => (
+                        {(tour.checkIns || []).map((time, index) => (
                             <div className="input-group mb-2" key={`checkin-${index}`}>
                                 <input
                                     className="form-control host-add-property-inputN"
@@ -125,7 +182,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
 
                         <label className="form-label small mb-1">Check-out</label>
 
-                        {tour.checkOuts.map((time, index) => (
+                        {(tour.checkOuts || []).map((time, index) => (
                             <input
                                 key={`checkout-${index}`}
                                 className="form-control host-add-property-inputN mb-2"
@@ -150,7 +207,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                         className="form-control host-add-property-inputN"
                         type="number"
                         min="0"
-                        value={tour.rate}
+                        value={tour.rate || ''}
                         onChange={(event) => updateTour(key, 'rate', event.target.value)}
                     />
                 </div>
@@ -202,9 +259,9 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                     type="button"
                     className="btn btn-warning rounded-pill px-5 py-2 host-add-property-nextN"
                     onClick={() => {
-                            onPropertyChange?.({ tourSettings: tours })
-                            onNext?.()
-                        }}
+                        onPropertyChange?.({ tourSettings: buildPayload(tours) })
+                        onNext?.()
+                    }}
                 >
                     Next
                 </button>

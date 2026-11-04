@@ -161,7 +161,7 @@ export function AdminProperties({ onViewDetails }) {
                                                 </span>
                                             ))}
                                             {amenitiesList.length > 4 && (
-                                                <span className="badge bg-dark text-muted small">
+                                                <span className="badge bg-secondary text-light small">
                                                     +{amenitiesList.length - 4} more
                                                 </span>
                                             )}

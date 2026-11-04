@@ -1,19 +1,6 @@
 import { Fragment, useState } from 'react'
 import resortImage from '../../../images/Bustos Hero.png'
 
-const defaultBedrooms = [
-    { name: 'Bedroom 1', description: '10-20 person • 4 Double Deck Beds and 2 Extra Mattresses' },
-    { name: 'Main Bedroom', description: '8-12 person • 2 King Size Beds and 2 Extra Mattresses' },
-]
-
-const defaultFeatures = [
-    ['1 Adult Pool', '80-100 Guest capacity'],
-    ['1 Kid Pool', 'Kitchen'],
-    ['2 Bedrooms', 'Entertainment'],
-    ['Cottages', 'Kitchen'],
-    ['Event Place', ''],
-]
-
 export const HostViewProperty = ({
     property,
     onBack,
@@ -23,21 +10,26 @@ export const HostViewProperty = ({
     onDelete,
 }) => {
     const [showMore, setShowMore] = useState(false)
-    const name = property?.name || 'Fabian’s Azzure Private Resort'
-    const location = property?.location || 'Brgy. Pinagbarilan, Baliwag, Bulacan'
-    const galleryImages = property?.galleryImages || [resortImage, resortImage, resortImage, resortImage]
-    const features = property?.amenities
+    const name = property?.name || 'Untitled Property'
+    const location = property?.location || property?.address || 'Location Not Specified'
+    const galleryImages = property?.galleryImages?.length ? property.galleryImages : []
+    
+    const features = property?.amenities?.length
         ? Array.from({ length: Math.ceil(property.amenities.length / 2) }, (_, index) => [
             property.amenities[index * 2],
             property.amenities[index * 2 + 1] || '',
         ])
-        : defaultFeatures
-    const bedrooms = property?.bedrooms || defaultBedrooms
+        : []
+
+    const bedrooms = property?.bedrooms || []
     const tours = property?.tourSettings
+
     const bedroomDescription = (bedroom) => bedroom.description || [
-        bedroom.capacity,
+        bedroom.capacity ? `${bedroom.capacity} guests` : '',
         bedroom.beds?.map((bed) => `${bed.quantity} ${bed.type}`).join(' and '),
     ].filter(Boolean).join(' • ')
+
+    const hasActiveTours = tours?.day?.enabled || tours?.night?.enabled || tours?.flexible?.enabled
 
     return (
         <section className="host-view-property-pageN mx-5">
@@ -64,7 +56,7 @@ export const HostViewProperty = ({
 
                 <div className="col-12 col-md-5">
                     <div className="row g-2">
-                        {galleryImages.map((image, index) => (
+                        {galleryImages.slice(0, 4).map((image, index) => (
                             <div className="col-6" key={index}>
                                 <img
                                     className="host-view-property-gallery-imageN rounded-2 w-100"
@@ -84,7 +76,7 @@ export const HostViewProperty = ({
                             <h1 className="lh-1">{name}</h1>
                             <h3>{location}</h3>
                         </div>
-                        <span className="badge rounded-pill  host-view-property-badgeN align-self-start">
+                        <span className="badge rounded-pill host-view-property-badgeN align-self-start">
                             Private Resort
                         </span>
                     </div>
@@ -95,76 +87,107 @@ export const HostViewProperty = ({
                         <h2 className="rate-title mb-2">Booking &amp; Schedule</h2>
                         <table className="rate-table">
                             <tbody>
-                                <tr>
-                                    <td>Day Tour</td>
-                                    <td>{tours?.day ? `${tours.day.checkIn} - ${tours.day.checkOut}` : '8:00 AM - 5:00 PM'}</td>
-                                </tr>
-                                <tr>
-                                    <td>Overnight Tour</td>
-                                    <td>{tours?.night ? `${tours.night.checkIn} - ${tours.night.checkOut}` : '5:00 PM - 3:00 PM (next day)'}</td>
-                                </tr>
-                                <tr>
-                                    <td>Flexible</td>
-                                    <td>{tours?.flexible ? `Starts ${tours.flexible.checkIns.join(' or ')} - Ends ${tours.flexible.checkOuts.join(' or ')}` : 'Starts 8:00 AM or 5:00 PM - Ends 5:00 PM'}</td>
-                                </tr>
+                                {tours?.day?.enabled && (
+                                    <tr>
+                                        <td>Day Tour</td>
+                                        <td>{`${tours.day.checkIn} - ${tours.day.checkOut}`}</td>
+                                    </tr>
+                                )}
+                                {tours?.night?.enabled && (
+                                    <tr>
+                                        <td>Night Tour</td>
+                                        <td>{`${tours.night.checkIn} - ${tours.night.checkOut}`}</td>
+                                    </tr>
+                                )}
+                                {tours?.flexible?.enabled && (
+                                    <tr>
+                                        <td>Flexible</td>
+                                        <td>{`Starts ${tours.flexible.checkIns?.join(' or ') || '08:00 AM'} - Ends ${tours.flexible.checkOuts?.join(' or ') || '05:00 PM'}`}</td>
+                                    </tr>
+                                )}
+                                {!hasActiveTours && (
+                                    <tr>
+                                        <td colSpan="2" className="text-muted">No active tour schedules configured.</td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
 
-                        <h2 className="rate-title mb-2">Guest Accommodation</h2>
-                        <table className="rate-table">
-                            <tbody>
-                                <tr>
-                                    <td>The Property can accommodate 50 - 100 Guests</td>
-                                    <td></td>
-                                </tr>
-                                <tr>
-                                    <td>Space for up to 30 cars</td>
-                                    <td></td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        {(property?.guestCapacity || property?.parkingSpace) && (
+                            <>
+                                <h2 className="rate-title mb-2 mt-4">Guest Accommodation</h2>
+                                <table className="rate-table">
+                                    <tbody>
+                                        {property?.guestCapacity && (
+                                            <tr>
+                                                <td>The Property can accommodate {property.guestCapacity} Guests</td>
+                                                <td></td>
+                                            </tr>
+                                        )}
+                                        {property?.parkingSpace && (
+                                            <tr>
+                                                <td>Space for up to {property.parkingSpace} cars</td>
+                                                <td></td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </>
+                        )}
 
-                        <p className="rate-desc">
-                            {property?.description || `Enjoy a relaxing getaway at ${name}, a place where you can unwind, spend quality time with family and friends, and create memorable moments away from the everyday hustle.`}
-                            {showMore && ' Discover a private retreat for your next celebration, gathering, or well-deserved escape.'}
-                        </p>
-                        <button
-                            type="button"
-                            className="btn btn-warning rounded-pill px-4"
-                            onClick={() => setShowMore((value) => !value)}
-                        >
-                            {showMore ? 'Show less' : 'Show more'}
-                        </button>
+                        {property?.description && (
+                            <>
+                                <p className="rate-desc mt-3">
+                                    {showMore
+                                        ? property.description
+                                        : `${property.description.slice(0, 180)}${property.description.length > 180 ? '...' : ''}`}
+                                </p>
+                                {property.description.length > 180 && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-warning rounded-pill px-4"
+                                        onClick={() => setShowMore((value) => !value)}
+                                    >
+                                        {showMore ? 'Show less' : 'Show more'}
+                                    </button>
+                                )}
+                            </>
+                        )}
                     </div>
 
-                    <hr className="host-view-property-dividerN my-4" />
+                    {features.length > 0 && (
+                        <>
+                            <hr className="host-view-property-dividerN my-4" />
+                            <h2 className="detail-title">What this place offers</h2>
+                            <div className="row small g-2">
+                                {features.map(([left, right], idx) => (
+                                    <Fragment key={idx}>
+                                        <div className="col-6">{left}</div>
+                                        <div className="col-6">{right}</div>
+                                    </Fragment>
+                                ))}
+                            </div>
+                        </>
+                    )}
 
-                    <h2 className="detail-title">What this place offers</h2>
-                    <div className="row small g-2">
-                        {features.map(([left, right]) => (
-                            <Fragment key={left}>
-                                <div className="col-6">{left}</div>
-                                <div className="col-6">{right}</div>
-                            </Fragment>
-                        ))}
-                    </div>
-
-                    <div className="cottages my-4">
-                        <h2 className="detail-title">Bedrooms</h2>
-                        <div className="row g-3">
-                            {bedrooms.map((bedroom) => (
-                                <div className="col-6 col-lg-5" key={bedroom.name}>
-                                    <img
-                                        className="host-view-bedroom-imageN rounded-2 w-100"
-                                        src={bedroom.photo || resortImage}
-                                        alt={bedroom.name}
-                                    />
-                                    <h3 className="small mt-1 mb-0">{bedroom.name}</h3>
-                                    <p className="host-view-property-descriptionN mb-0">{bedroomDescription(bedroom)}</p>
-                                </div>
-                            ))}
+                    {bedrooms.length > 0 && (
+                        <div className="cottages my-4">
+                            <h2 className="detail-title">Bedrooms</h2>
+                            <div className="row g-3">
+                                {bedrooms.map((bedroom, index) => (
+                                    <div className="col-6 col-lg-5" key={bedroom.name || index}>
+                                        <img
+                                            className="host-view-bedroom-imageN rounded-2 w-100"
+                                            src={bedroom.photo || resortImage}
+                                            alt={bedroom.name}
+                                        />
+                                        <h3 className="small mt-1 mb-0">{bedroom.name}</h3>
+                                        <p className="host-view-property-descriptionN mb-0">{bedroomDescription(bedroom)}</p>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 <aside className="col-12 col-lg-5 my-4 position-sticky align-self-start">

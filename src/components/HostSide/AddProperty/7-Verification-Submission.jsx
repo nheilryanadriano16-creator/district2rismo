@@ -27,13 +27,14 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
     const [files, setFiles] = useState(property?.verificationFiles || {})
     const [imagePreviews, setImagePreviews] = useState({})
     const [errors, setErrors] = useState({})
+
     const savedPhotoGroups = Object.entries(property?.mediaPhotos || {})
     const uploadedPhotos = savedPhotoGroups.length
         ? savedPhotoGroups.flatMap(([groupId, photos]) => photos.map((photo) => ({
             id: `${groupId}-${photo.id}`,
             name: photo.name || photoGroupLabels[groupId] || groupId,
             size: photo.size,
-            src: photo.preview,
+            src: photo.preview || photo.localPath,
         })))
         : [
             ...(property?.image ? [{ id: 'cover', name: 'Cover Photo', src: property.image }] : []),
@@ -43,44 +44,47 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
                 src,
             })),
         ]
-    const bedroomPhotos = (property?.bedrooms || [])
-        .filter((bedroom) => bedroom.photo?.startsWith('data:image/'))
-        .map((bedroom) => ({
-            id: bedroom.id,
-            name: bedroom.photoName || `${bedroom.name} Photo`,
-            size: bedroom.photoSize,
-            src: bedroom.photo,
-        }))
 
-    const addFile = (id, file) => {
+    const addFile = async (id, file) => {
         if (!file) return
-        const updated = { ...files, [id]: file }
+
+        const objectUrl = URL.createObjectURL(file)
+
+        const formData = new FormData()
+        formData.append('file', file)
+
+        try {
+            await fetch('http://localhost:4242/api/upload', {
+                method: 'POST',
+                body: formData,
+            })
+        } catch (error) {
+            console.error(error)
+        }
+
+        const fileRecord = {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            localPath: `/uploads/${file.name}`,
+            previewUrl: objectUrl,
+        }
+
+        const updated = { ...files, [id]: fileRecord }
         setFiles(updated)
         onPropertyChange?.({ verificationFiles: updated })
         setErrors((current) => ({ ...current, [id]: false }))
 
         const isImage = file.type.startsWith('image/') || /\.(png|jpe?g)$/i.test(file.name)
-        if (!isImage) {
-            setImagePreviews((current) => {
-                const next = { ...current }
-                delete next[id]
-                return next
-            })
-            return
-        }
-
-        const reader = new FileReader()
-        reader.onload = () => {
-            if (typeof reader.result === 'string') {
-                setImagePreviews((current) => ({ ...current, [id]: reader.result }))
-            } else {
-                console.error(`Could not create a preview for ${file.name}.`)
+        if (isImage) {
+            const reader = new FileReader()
+            reader.onload = () => {
+                if (typeof reader.result === 'string') {
+                    setImagePreviews((current) => ({ ...current, [id]: reader.result }))
+                }
             }
+            reader.readAsDataURL(file)
         }
-        reader.onerror = () => {
-            console.error(`Could not read ${file.name}:`, reader.error)
-        }
-        reader.readAsDataURL(file)
     }
 
     const removeFile = (id) => {
@@ -157,7 +161,14 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
                         />
                     )}
                     <span className="small text-truncate flex-grow-1">
-                        <span className="text-warning">{files[group.id].name}</span>
+                        <a
+                            href={files[group.id].previewUrl || imagePreviews[group.id] || files[group.id].localPath || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-warning text-decoration-none"
+                        >
+                            {files[group.id].name}
+                        </a>
                         {' '}({formatFileSize(files[group.id].size)})
                     </span>
                     <button
@@ -203,11 +214,11 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
                 7. Verification &amp; Submission
             </h1>
 
-            {(uploadedPhotos.length > 0 || bedroomPhotos.length > 0) && (
+            {uploadedPhotos.length > 0 && (
                 <section className="mb-4" aria-label="Uploaded property photos">
                     <h2 className="h6 text-warning mb-3">Uploaded Photos</h2>
                     <div className="row g-3">
-                        {[...uploadedPhotos, ...bedroomPhotos].map((photo) => (
+                        {uploadedPhotos.map((photo) => (
                             <div className="col-12" key={photo.id}>
                                 <div className="host-photo-fileN d-flex align-items-center gap-2 rounded-2 px-3 py-2">
                                     <img
@@ -216,7 +227,14 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
                                         alt=""
                                     />
                                     <span className="small text-truncate flex-grow-1">
-                                        <span className="text-warning">{photo.name}</span>
+                                        <a
+                                            href={photo.src}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-warning text-decoration-none"
+                                        >
+                                            {photo.name}
+                                        </a>
                                         {Number.isFinite(photo.size) && (
                                             <> ({formatFileSize(photo.size)})</>
                                         )}

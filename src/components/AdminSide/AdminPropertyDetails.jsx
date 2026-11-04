@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 import resortImage from '../../images/Bustos Hero.png'
 import { HostAddProperty } from '../../pages/HostAddProperty.jsx'
 
@@ -7,6 +10,8 @@ export function AdminPropertyDetails({
     onReject,
     onApprove,
 }) {
+    const [submitting, setSubmitting] = useState(false)
+
     if (!property) {
         return (
             <section className="admin-property-detailsN container-fluid p-3 p-md-4 text-white">
@@ -30,20 +35,42 @@ export function AdminPropertyDetails({
     const propertyImage = property.image || property.imageUrl || (property.images && property.images[0]) || resortImage
 
     const statusLower = displayStatus.toLowerCase()
+    const isApproved = statusLower === 'approved' || statusLower === 'active'
     const statusClass = statusLower === 'pending' 
         ? 'pending' 
-        : statusLower === 'approved' || statusLower === 'active' 
+        : isApproved 
             ? 'verified' 
             : ''
 
+    const handleAction = async (newStatus) => {
+        try {
+            setSubmitting(true)
+            if (property.id) {
+                const docRef = doc(db, 'properties', property.id)
+                await updateDoc(docRef, { status: newStatus })
+            }
+            if (newStatus === 'Approved' && onApprove) {
+                onApprove({ ...property, status: newStatus })
+            } else if (newStatus === 'Pending' && onReject) {
+                onReject({ ...property, status: newStatus })
+            } else if (onBack) {
+                onBack()
+            }
+        } catch (err) {
+            console.error('Error updating property status:', err)
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
     return (
         <section className="admin-property-detailsN container-fluid p-3 p-md-4">
-            {/* Custom Breadcrumb matching Users > User Details style */}
             <div className="d-flex align-items-center gap-2 fs-5 mb-3">
                 <button
                     type="button"
                     className="admin-property-backN btn btn-link p-0 text-decoration-none text-white fs-5 fw-normal"
                     onClick={onBack}
+                    disabled={submitting}
                 >
                     Properties
                 </button>
@@ -86,8 +113,10 @@ export function AdminPropertyDetails({
                     image: propertyImage
                 }}
                 onBack={onBack}
-                onReject={() => onReject?.(property)}
-                onApprove={() => onApprove?.(property)}
+                onReject={isApproved ? undefined : () => handleAction('Rejected')}
+                onApprove={() => handleAction(isApproved ? 'Pending' : 'Approved')}
+                approveText={isApproved ? 'Revoke' : 'Approve'}
+                rejectText="Reject"
             />
         </section>
     )
