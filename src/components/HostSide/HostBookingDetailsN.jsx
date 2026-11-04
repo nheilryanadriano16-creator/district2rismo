@@ -1,28 +1,36 @@
+import { formatHostDate } from '../../utils/hostData'
+
 export const HostBookingDetailsN = ({
     booking,
     onBack,
     onConfirm,
     onReject,
 }) => {
-    const guest = booking?.guest || 'Mj Massalang'
-    const resort = booking?.resort || 'Galilee Wonderland Resort'
-    const reservationId = String(booking?.id || '00001').padStart(5, '0')
+    const guest = booking?.guest || 'Guest'
+    const resort = booking?.resort || 'Property'
+    const reservationId = String(booking?.id || '').slice(-5).padStart(5, '0')
     const status = booking?.status || 'Pending'
+    const startDate = formatHostDate(booking?.startDate || booking?.date)
+    const endDate = formatHostDate(booking?.endDate || booking?.date)
+    const total = Number(booking?.totalAmount || 0)
+    const paid = Number(booking?.amountPaid || 0)
+    const remaining = Number(booking?.remainingBalance || Math.max(total - paid, 0))
+    const money = (amount) => `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 0 })}`
 
     const reservationRows = [
         ['Reservation ID', `#${reservationId}`],
         ['Property Name', resort],
-        ['Booking Date', 'Oct 24, 2026 - Oct 26, 2026'],
-        ['Duration', '3'],
-        ['Number of Guests', booking?.guests || '3'],
+        ['Booking Date', `${startDate} - ${endDate}`],
+        ['Duration', booking?.duration || '1'],
+        ['Number of Guests', booking?.guests || '0'],
     ]
 
     const paymentRows = [
-        ['Total Amount', '₱12,500'],
-        ['Amount Paid', '₱12,500'],
-        ['Remaining Balance', '₱0'],
-        ['Payment Date', 'Oct 24, 2026'],
-        ['Payment Method', 'Reservation #GWR-00001'],
+        ['Total Amount', money(total)],
+        ['Amount Paid', money(paid)],
+        ['Remaining Balance', money(remaining)],
+        ['Payment Date', formatHostDate(booking?.paymentDate || booking?.date)],
+        ['Payment Method', booking?.paymentMethod || 'Online payment'],
     ]
 
     const renderRows = (rows) => rows.map(([label, value]) => (
@@ -66,10 +74,10 @@ export const HostBookingDetailsN = ({
                     <div className="col-12 col-md-auto">
                         <dl className="row small mb-0">
                             <dt className="col-4 fw-normal">Phone</dt>
-                            <dd className="col-8 text-md-end mb-1">0994 951 7001</dd>
+                            <dd className="col-8 text-md-end mb-1">{booking?.phone || '—'}</dd>
                             <dt className="col-4 fw-normal">Email</dt>
                             <dd className="col-8 text-md-end mb-0 text-break">
-                                mjmassalang11@gmail.com
+                                {booking?.email || '—'}
                             </dd>
                         </dl>
                     </div>

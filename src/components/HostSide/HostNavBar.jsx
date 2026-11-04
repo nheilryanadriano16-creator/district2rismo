@@ -1,13 +1,25 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Offcanvas from 'react-bootstrap/Offcanvas'
 import Logo2Rismo from '../../images/2Rismo Logo.png'
 import { HostSideBarN } from './HostSideBarN.jsx'
+import { useAuth } from '../../context/AuthContext'
 
-export const HostNavBar = ({ activeSection, onSelect, preview = false }) => {
+export const HostNavBar = ({ activeSection, onSelect, preview = false, onLogout }) => {
     const [showMenu, setShowMenu] = useState(false)
     const dashboardPath = preview ? '/host-preview' : '/host'
     const profilePath = preview ? '/host-profile-preview' : '/host/profile'
+    const navigate = useNavigate()
+    const { logout } = useAuth()
+
+    const handleLogout = async () => {
+        if (onLogout) {
+            await onLogout()
+            return
+        }
+        await logout()
+        navigate('/', { replace: true })
+    }
 
     const handleSelect = (section) => {
         onSelect?.(section)
@@ -77,6 +89,7 @@ export const HostNavBar = ({ activeSection, onSelect, preview = false }) => {
                                     : activeSection
                         }
                         onSelect={handleSelect}
+                        onLogout={handleLogout}
                     />
                 </Offcanvas.Body>
             </Offcanvas>

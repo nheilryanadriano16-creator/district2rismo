@@ -162,7 +162,10 @@ export const AmenitiesFacilities = ({ onBack, onNext, onExit, property, onProper
             <button
                 type="button"
                 className="btn btn-warning rounded-pill px-5 py-2 host-add-property-nextN"
-                onClick={onNext}
+                onClick={() => {
+                    onPropertyChange?.({ amenities: selectedAmenities })
+                    onNext?.()
+                }}
             >
                 Next
             </button>

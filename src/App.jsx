@@ -37,7 +37,7 @@ function App() {
               <Route path="/admin-preview/reservations/:id" element={<AdminReservationDetailsPage preview />} />
               <Route path="/admin-preview/reviews/:id" element={<AdminReviewDetailsPage preview />} />
               <Route path="/admin-profile-preview" element={<AdminProfilePage preview />} />
-              <Route path="/host-preview/*" element={<HostN />} />
+              <Route path="/host-preview/*" element={<HostN preview />} />
               <Route path="/host-profile-preview" element={<HostMyProfilePage preview />} />
             </>
           )}

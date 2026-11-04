@@ -201,7 +201,10 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                 <button
                     type="button"
                     className="btn btn-warning rounded-pill px-5 py-2 host-add-property-nextN"
-                    onClick={onNext}
+                    onClick={() => {
+                            onPropertyChange?.({ tourSettings: tours })
+                            onNext?.()
+                        }}
                 >
                     Next
                 </button>

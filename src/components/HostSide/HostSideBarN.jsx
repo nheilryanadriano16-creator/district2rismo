@@ -12,7 +12,7 @@ const generalItems = [
     { label: 'Help', icon: 'bi-question-circle-fill' },
 ]
 
-export const HostSideBarN = ({ onSelect, activeSection = 'Dashboard' }) => {
+export const HostSideBarN = ({ onSelect, onLogout, activeSection = 'Dashboard' }) => {
     const renderItem = (item) => (
         <button
             key={item.label}
@@ -40,6 +40,7 @@ export const HostSideBarN = ({ onSelect, activeSection = 'Dashboard' }) => {
                 <button
                     type="button"
                     className="list-group-item list-group-item-action d-flex align-items-center gap-2 text-nowrap rounded-2"
+                    onClick={onLogout}
                 >
                     <i className="bi bi-box-arrow-right" aria-hidden="true" />
                     <span>Logout</span>

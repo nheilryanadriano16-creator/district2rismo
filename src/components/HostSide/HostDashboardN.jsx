@@ -1,22 +1,64 @@
-const recentBookings = [
-    { id: 1, guest: 'Mj Massalang', resort: 'Galilee Wonderland Resort', date: 'Oct 27, 2026', status: 'Pending' },
-    { id: 2, guest: 'Mj Massalang', resort: 'Galilee Wonderland Resort', date: 'Oct 27, 2026', status: 'Completed' },
-    { id: 3, guest: 'Mj Massalang', resort: 'Galilee Wonderland Resort', date: 'Oct 27, 2026', status: 'Completed' },
-]
+import { useEffect, useState } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { fetchHostProperties, fetchHostReservations, formatHostDate } from '../../utils/hostData'
 
-const stats = [
-    { label: <>Total Bookings<br />(This Month)</>, value: '26', highlight: true },
-    { label: 'My Properties', value: '1' },
-    { label: <>Pending<br />Request</>, value: '5' },
-]
+export const HostDashboardN = ({ onViewBookings }) => {
+    const { currentUser } = useAuth()
+    const [stats, setStats] = useState([
+        { label: <>Total Bookings<br />(This Month)</>, value: '0', highlight: true },
+        { label: 'My Properties', value: '0' },
+        { label: <>Pending<br />Request</>, value: '0' },
+    ])
+    const [recentBookings, setRecentBookings] = useState([])
 
-export const HostDashboardN = () => (
+    useEffect(() => {
+        let isMounted = true
+
+        async function loadDashboard() {
+            if (!currentUser?.uid) return
+            try {
+                const properties = await fetchHostProperties(currentUser.uid, { email: currentUser.email })
+                const reservations = await fetchHostReservations(currentUser.uid, properties)
+                const now = new Date()
+                const monthBookings = reservations.filter((booking) => {
+                    const raw = booking.startDate || booking.date
+                    const date = raw
+                        ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(raw)) ? `${raw}T00:00:00` : raw)
+                        : null
+                    return date && !Number.isNaN(date.getTime()) && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
+                })
+                const pending = reservations.filter((booking) => booking.filterStatus === 'Pending')
+                if (!isMounted) return
+                setStats([
+                    { label: <>Total Bookings<br />(This Month)</>, value: String(monthBookings.length), highlight: true },
+                    { label: 'My Properties', value: String(properties.length) },
+                    { label: <>Pending<br />Request</>, value: String(pending.length) },
+                ])
+                setRecentBookings(reservations.slice(0, 5).map((booking) => ({
+                    id: booking.id,
+                    guest: booking.guest,
+                    resort: booking.resort,
+                    date: formatHostDate(booking.date),
+                    status: booking.status,
+                })))
+            } catch (error) {
+                console.error('Error loading host dashboard:', error)
+            }
+        }
+
+        loadDashboard()
+        return () => {
+            isMounted = false
+        }
+    }, [currentUser])
+
+    return (
     <section className="host-dashboardN container-fluid p-3 p-md-4 text-white">
         <h1 className="h2 fw-bold text-warning mb-3">Dashboard</h1>
 
         <div className="row g-2 host-statsN mb-4">
-            {stats.map((stat) => (
-                <div key={stat.value + (stat.highlight ? '-bookings' : '')} className="col-4">
+            {stats.map((stat, index) => (
+                <div key={index} className="col-4">
                     <article className={`host-stat-cardN h-100 rounded-3 p-2 p-md-3 ${stat.highlight ? 'highlight' : ''}`}>
                         <div className="d-flex justify-content-between gap-2">
                             <span className="small lh-sm">{stat.label}</span>
@@ -46,8 +88,12 @@ export const HostDashboardN = () => (
                     </span>
                 </article>
             ))}
+            {recentBookings.length === 0 && (
+                <p className="small text-secondary mb-0">No bookings yet.</p>
+            )}
         </div>
 
-        <button type="button" className="btn btn-link host-view-bookingsN px-0 mt-1">View All Bookings</button>
+        <button type="button" className="btn btn-link host-view-bookingsN px-0 mt-1" onClick={onViewBookings}>View All Bookings</button>
     </section>
-)
+    )
+}

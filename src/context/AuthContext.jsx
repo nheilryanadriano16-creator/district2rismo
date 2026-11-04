@@ -8,6 +8,7 @@ import {
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useNotification } from "./NotificationContext";
+import { normalizeRole } from "../utils/roles";
 
 const AuthContext = createContext();
 
@@ -22,14 +23,15 @@ export const AuthProvider = ({ children }) => {
     const res = await createUserWithEmailAndPassword(auth, email, password);
     const user = res.user;
 
-    const userRoleValue = extraData.role || "customer";
+    const userRoleValue = normalizeRole(extraData.role);
 
+    const { role: _signupRole, ...profileData } = extraData
     const userPayload = {
       uid: user.uid,
       email: user.email,
-      role: userRoleValue,
       createdAt: new Date(),
-      ...extraData
+      ...profileData,
+      role: userRoleValue,
     };
 
     await setDoc(doc(db, "users", user.uid), userPayload);
@@ -38,7 +40,42 @@ export const AuthProvider = ({ children }) => {
     setUserData(userPayload);
     setUserRole(userRoleValue);
     showNotification('Account created and logged in successfully!', 'success');
-    return res;
+    return { user, role: userRoleValue };
+  };
+
+  const applyUserDocument = async (user) => {
+    const userDocRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      const data = userDoc.data();
+      const role = normalizeRole(data.role);
+
+      if (String(data.status || "").toLowerCase() === "deactivated") {
+        await signOut(auth);
+        setCurrentUser(null);
+        setUserData(null);
+        setUserRole(null);
+        const error = new Error("This account has been deactivated.");
+        error.code = "auth/account-deactivated";
+        throw error;
+      }
+
+      setUserData(data);
+      setUserRole(role);
+      return { data, role };
+    }
+
+    const defaultData = {
+      uid: user.uid,
+      email: user.email,
+      role: "customer",
+      createdAt: new Date(),
+    };
+    await setDoc(userDocRef, defaultData);
+    setUserData(defaultData);
+    setUserRole("customer");
+    return { data: defaultData, role: "customer" };
   };
 
   const login = async (email, password) => {
@@ -46,27 +83,14 @@ export const AuthProvider = ({ children }) => {
     const user = res.user;
     setCurrentUser(user);
 
-    const userDocRef = doc(db, "users", user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (userDoc.exists()) {
-      const data = userDoc.data();
-      setUserData(data);
-      setUserRole(data.role || "customer");
-    } else {
-      const defaultData = {
-        uid: user.uid,
-        email: user.email,
-        role: "customer",
-        createdAt: new Date()
-      };
-      await setDoc(userDocRef, defaultData);
-      setUserData(defaultData);
-      setUserRole("customer");
-    }
+    const { role } = await applyUserDocument(user);
 
     showNotification('Logged in successfully!', 'success');
-    return res;
+    return { user, role };
+  };
+
+  const updateUserData = (partial) => {
+    setUserData((current) => (current ? { ...current, ...partial } : current));
   };
 
   const logout = async () => {
@@ -86,23 +110,12 @@ export const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setCurrentUser(user);
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserData(data);
-          setUserRole(data.role || "customer");
-        } else {
-          const defaultData = {
-            uid: user.uid,
-            email: user.email,
-            role: "customer",
-            createdAt: new Date()
-          };
-          await setDoc(userDocRef, defaultData);
-          setUserData(defaultData);
-          setUserRole("customer");
+        try {
+          await applyUserDocument(user);
+        } catch (err) {
+          if (err.code !== "auth/account-deactivated") {
+            console.error("Failed to load user profile:", err);
+          }
         }
       } else {
         setCurrentUser(null);
@@ -116,7 +129,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ currentUser, userData, userRole, signup, login, logout, loading }}>
+    <AuthContext.Provider value={{ currentUser, userData, userRole, signup, login, logout, updateUserData, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );
