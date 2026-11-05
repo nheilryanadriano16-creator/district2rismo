@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { fetchHostProperties, fetchHostReservations } from '../../utils/hostData'
+import { collection, getDocs, query, where } from 'firebase/firestore'
+import { db } from '../../firebase'
 
-const filters = ['All', 'Pending', 'Accepted', 'Rejected']
+const filters = ['All', 'Pending', 'Confirmed', 'Rejected']
 
 const formatDate = (date) => {
     if (!date) return '—'
@@ -33,12 +34,30 @@ export const HostBookingsN = ({ onViewBooking }) => {
         async function loadBookings() {
             if (!currentUser?.uid) return
             try {
-                const hostProperties = await fetchHostProperties(currentUser.uid, { email: currentUser.email })
-                const hostBookings = await fetchHostReservations(currentUser.uid, hostProperties)
+                // Fetch bookings directly from Firestore 'bookings' collection
+                const querySnapshot = await getDocs(collection(db, 'bookings'))
+                const loadedBookings = querySnapshot.docs.map(doc => {
+                    const data = doc.data()
+                    return {
+                        id: doc.id,
+                        guest: data.userEmail || data.guest || 'Guest',
+                        resort: data.propertyName || data.resort || 'Resort Property',
+                        date: data.date || data.startDate || '',
+                        guests: data.guestsCount || data.guests || 1,
+                        status: data.status || 'Confirmed',
+                        filterStatus: data.status || 'Confirmed',
+                        ...data,
+                    }
+                })
+
                 if (!isMounted) return
-                setProperties(hostProperties)
-                setBookings(hostBookings)
-                const first = hostBookings[0] || null
+
+                // Extract unique properties for the dropdown
+                const uniqueProps = [...new Set(loadedBookings.map(b => b.resort).filter(Boolean))]
+                setProperties(uniqueProps.map(name => ({ id: name, name })))
+                setBookings(loadedBookings)
+
+                const first = loadedBookings[0] || null
                 setSelectedBooking(first)
                 setSelectedDate(first?.date || '')
             } catch (error) {
@@ -53,7 +72,7 @@ export const HostBookingsN = ({ onViewBooking }) => {
     }, [currentUser])
 
     const visibleBookings = bookings.filter((booking) => {
-        const matchesFilter = activeFilter === 'All' || booking.filterStatus === activeFilter
+        const matchesFilter = activeFilter === 'All' || booking.status.toLowerCase() === activeFilter.toLowerCase()
         const matchesSearch = booking.guest.toLowerCase().includes(search.toLowerCase())
         const matchesProperty = !selectedProperty || booking.resort === selectedProperty
         return matchesFilter && matchesSearch && matchesProperty
@@ -108,7 +127,7 @@ export const HostBookingsN = ({ onViewBooking }) => {
                             {visibleBookings.map((booking) => (
                                 <article key={booking.id} className={`host-booking-rowN d-flex align-items-center gap-2 rounded-3 p-2 ${selectedBooking?.id === booking.id ? 'selected' : ''}`}>
                                     <div className="host-booking-avatarN rounded-circle d-flex align-items-center justify-content-center flex-shrink-0">
-                                        {booking.guest.charAt(0)}
+                                        {booking.guest.charAt(0).toUpperCase()}
                                     </div>
 
                                     <div className="flex-grow-1 min-w-0">
@@ -117,7 +136,7 @@ export const HostBookingsN = ({ onViewBooking }) => {
                                         <small className="host-booking-dateN">{formatDate(booking.date)}</small>
                                     </div>
 
-                                    <span className={`host-booking-pill rounded-pill text-center ${String(booking.filterStatus || booking.status).toLowerCase()}`}>
+                                    <span className={`host-booking-pill rounded-pill text-center ${String(booking.status).toLowerCase()}`}>
                                         {booking.status}
                                     </span>
 
@@ -146,7 +165,7 @@ export const HostBookingsN = ({ onViewBooking }) => {
                         </div>
                         <div className="d-flex justify-content-between gap-3 small mb-4">
                             <span>Number of guests</span>
-                            <span>{selectedBooking ? `${selectedBooking.guests} or -` : '—'}</span>
+                            <span>{selectedBooking ? `${selectedBooking.guests} Guests` : '—'}</span>
                         </div>
 
                         <button

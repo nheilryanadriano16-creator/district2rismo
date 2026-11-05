@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { doc, updateDoc } from 'firebase/firestore'
+import { useState, useEffect } from 'react'
+import { doc, updateDoc, getDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import resortImage from '../../images/Bustos Hero.png'
 import { HostAddProperty } from '../../pages/HostAddProperty.jsx'
@@ -11,8 +11,13 @@ export function AdminPropertyDetails({
     onApprove,
 }) {
     const [submitting, setSubmitting] = useState(false)
+    const [currentProperty, setCurrentProperty] = useState(property)
 
-    if (!property) {
+    useEffect(() => {
+        setCurrentProperty(property)
+    }, [property])
+
+    if (!currentProperty) {
         return (
             <section className="admin-property-detailsN container-fluid p-3 p-md-4 text-white">
                 <p>No property selected.</p>
@@ -27,12 +32,12 @@ export function AdminPropertyDetails({
         )
     }
 
-    const displayOwner = property.firstName && property.lastName
-        ? `${property.firstName} ${property.lastName}`
-        : property.owner || property.ownerName || 'Unknown Owner'
+    const displayOwner = currentProperty.firstName && currentProperty.lastName
+        ? `${currentProperty.firstName} ${currentProperty.lastName}`
+        : currentProperty.owner || currentProperty.ownerName || 'Unknown Owner'
 
-    const displayStatus = property.status || 'Pending'
-    const propertyImage = property.image || property.imageUrl || (property.images && property.images[0]) || resortImage
+    const displayStatus = currentProperty.status || 'Pending'
+    const propertyImage = currentProperty.image || currentProperty.imageUrl || (currentProperty.images && currentProperty.images[0]) || resortImage
 
     const statusLower = displayStatus.toLowerCase()
     const isApproved = statusLower === 'approved' || statusLower === 'active'
@@ -45,16 +50,29 @@ export function AdminPropertyDetails({
     const handleAction = async (newStatus) => {
         try {
             setSubmitting(true)
-            if (property.id) {
-                const docRef = doc(db, 'properties', property.id)
-                await updateDoc(docRef, { status: newStatus })
+            if (currentProperty.id) {
+                const docRef = doc(db, 'properties', currentProperty.id)
+
+                if (newStatus === 'Approved') {
+                    const docSnap = await getDoc(docRef)
+                    const currentData = docSnap.data() || {}
+
+                    await updateDoc(docRef, {
+                        status: newStatus,
+                        totalReservations: currentData.totalReservations ?? 0
+                    })
+                } else {
+                    await updateDoc(docRef, { status: newStatus })
+                }
             }
+
+            const updated = { ...currentProperty, status: newStatus }
+            setCurrentProperty(updated)
+
             if (newStatus === 'Approved' && onApprove) {
-                onApprove({ ...property, status: newStatus })
-            } else if (newStatus === 'Pending' && onReject) {
-                onReject({ ...property, status: newStatus })
-            } else if (onBack) {
-                onBack()
+                onApprove(updated)
+            } else if (onReject) {
+                onReject(updated)
             }
         } catch (err) {
             console.error('Error updating property status:', err)
@@ -91,7 +109,7 @@ export function AdminPropertyDetails({
                         />
                     </div>
                     <div className="col">
-                        <h1 className="h2 mb-0 text-white">{property.name || 'Unnamed Property'}</h1>
+                        <h1 className="h2 mb-0 text-white">{currentProperty.name || 'Unnamed Property'}</h1>
                         <p className="text-warning mb-0">
                             Listed By: {displayOwner}
                         </p>
@@ -105,18 +123,19 @@ export function AdminPropertyDetails({
             </header>
 
             <HostAddProperty
+                key={`${currentProperty.id}-${displayStatus}`}
                 mode="review"
                 property={{
-                    ...property,
+                    ...currentProperty,
                     owner: displayOwner,
                     status: displayStatus,
                     image: propertyImage
                 }}
                 onBack={onBack}
-                onReject={isApproved ? undefined : () => handleAction('Rejected')}
+                onReject={() => handleAction(isApproved ? 'Revoked' : 'Rejected')}
                 onApprove={() => handleAction(isApproved ? 'Pending' : 'Approved')}
-                approveText={isApproved ? 'Revoke' : 'Approve'}
-                rejectText="Reject"
+                approveText={isApproved ? 'Set Pending' : 'Approve'}
+                rejectText={isApproved ? 'Revoke Approval' : 'Reject'}
             />
         </section>
     )

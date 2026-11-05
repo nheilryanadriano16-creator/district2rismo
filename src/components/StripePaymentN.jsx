@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import {
     PaymentElement,
@@ -19,7 +19,6 @@ function PaymentForm() {
     const [errorMessage, setErrorMessage] = useState('')
     const [email, setEmail] = useState('')
 
-
     const handlePayment = async (event) => {
         event.preventDefault()
 
@@ -32,8 +31,8 @@ function PaymentForm() {
 
         try {
             const result = await checkoutState.checkout.confirm({
-            email: email.trim(),
-        })
+                email: email.trim(),
+            })
 
             if (result.type === 'error') {
                 setErrorMessage(
@@ -101,13 +100,12 @@ export default function StripePaymentN({ booking, payOption }) {
     const [errorMessage, setErrorMessage] = useState('')
     const [loading, setLoading] = useState(true)
 
-    const adultCount = booking?.guests?.adult
-    const kidsCount = booking?.guests?.kids
-    const seniorCount = booking?.guests?.senior
+    const guestsCount = booking?.guestsCount || booking?.guests?.adult || 1
     const session = booking?.session
     const date = booking?.date
-    const cottageName = booking?.cottage?.name
-    const resortName = booking?.resort?.name
+    const cottages = booking?.cottages || []
+    const resortName = booking?.resort?.name || booking?.property?.name
+    const totalAmount = booking?.total
 
     useEffect(() => {
         const controller = new AbortController()
@@ -127,15 +125,12 @@ export default function StripePaymentN({ booking, payOption }) {
                         },
                         body: JSON.stringify({
                             booking: {
-                                guests: {
-                                    adult: adultCount,
-                                    kids: kidsCount,
-                                    senior: seniorCount,
-                                },
+                                guestsCount,
                                 session,
                                 date,
-                                cottageName,
+                                cottages,
                                 resortName,
+                                totalAmount,
                             },
                             payOption,
                         }),
@@ -169,13 +164,12 @@ export default function StripePaymentN({ booking, payOption }) {
 
         return () => controller.abort()
     }, [
-        adultCount,
-        kidsCount,
-        seniorCount,
+        guestsCount,
         session,
         date,
-        cottageName,
+        cottages,
         resortName,
+        totalAmount,
         payOption,
     ])
 

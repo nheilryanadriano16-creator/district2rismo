@@ -101,8 +101,8 @@ function NavBar() {
                                 )}
                                 <div className="d-flex gap-2">
                                     <Link
-                                        to={userRole === 'host' ? '/host/profile' : userRole === 'admin' ? '/admin/profile' : '/account'}
-                                        className="btn nav-profile-secondaryN w-50 fw-bold"
+                                        to="/account"
+                                        className="btn nav-profile-secondaryN w-50 fw-bold text-center"
                                         onClick={() => setShowUserModal(false)}
                                     >
                                         Manage Profile

@@ -1,5 +1,4 @@
 import Dropdown from 'react-bootstrap/Dropdown'
-import Form from 'react-bootstrap/Form'
 import { useAuth } from '../context/AuthContext'
 
 export const BurgerOptionN = ({ darkMode = false, onToggleDarkMode, onNotifications, onHelpCenter, onListProperty, onLogin }) => {
@@ -20,10 +19,6 @@ export const BurgerOptionN = ({ darkMode = false, onToggleDarkMode, onNotificati
             </Dropdown.Toggle>
 
             <Dropdown.Menu className="burger-menuN p-2 rounded-4 shadow">
-                
-
-                <Dropdown.Divider className="border-warning opacity-50" />
-
                 <Dropdown.Item as="button" onClick={onNotifications}>
                     <i className="bi bi-bell me-2" aria-hidden="true" />
                     Notifications

@@ -33,8 +33,7 @@ export function HostMyProfile() {
         setDraft((current) => ({ ...current, [name]: value }))
     }
 
-    const handleSubmit = async (event) => {
-        event.preventDefault()
+    const handleSave = async () => {
         try {
             await saveHostProfile(currentUser?.uid, draft)
             setProfile(draft)
@@ -58,52 +57,63 @@ export function HostMyProfile() {
         <section className="profile-panelN container-fluid p-3 p-md-4 p-lg-5 text-white">
             <h1 className="h2 fw-bold profile-titleN mb-4">My Profile</h1>
 
-            <form onSubmit={handleSubmit}>
-                <div className="row g-3 g-lg-4">
-                    {fields.map((field) => (
-                        <div className="col-12 col-md-6" key={field.name}>
-                            <label
-                                className="form-label profile-labelN mb-1"
-                                htmlFor={`host-profile-${field.name}`}
-                            >
-                                {field.label}
-                            </label>
-                            <input
-                                id={`host-profile-${field.name}`}
-                                className="form-control profile-inputN"
-                                type={field.type}
-                                name={field.name}
-                                value={draft[field.name]}
-                                onChange={handleChange}
-                                readOnly={!isEditing}
-                                autoComplete={field.autoComplete}
-                            />
-                        </div>
-                    ))}
+            <div className="row g-3 g-lg-4">
+                {fields.map((field) => (
+                    <div className="col-12 col-md-6" key={field.name}>
+                        <label
+                            className="form-label profile-labelN mb-1"
+                            htmlFor={`host-profile-${field.name}`}
+                        >
+                            {field.label}
+                        </label>
+                        <input
+                            id={`host-profile-${field.name}`}
+                            className="form-control profile-inputN"
+                            type={field.type}
+                            name={field.name}
+                            value={draft[field.name]}
+                            onChange={handleChange}
+                            readOnly={!isEditing}
+                            autoComplete={field.autoComplete}
+                        />
+                    </div>
+                ))}
 
-                    <div className="col-12 col-md-6 offset-md-6 d-flex justify-content-end">
-                        {isEditing ? (
+                <div className="col-12 col-md-6 offset-md-6 d-flex justify-content-end gap-2">
+                    {isEditing ? (
+                        <>
                             <button
-                                className="btn btn-warning rounded-pill px-5 fw-semibold"
-                                type="submit"
-                            >
-                                Save
-                            </button>
-                        ) : (
-                            <button
-                                className="btn btn-warning rounded-pill px-5 fw-semibold"
+                                className="btn btn-outline-light rounded-pill px-4 fw-semibold"
                                 type="button"
                                 onClick={() => {
                                     setDraft(profile)
-                                    setIsEditing(true)
+                                    setIsEditing(false)
                                 }}
                             >
-                                Edit
+                                Cancel
                             </button>
-                        )}
-                    </div>
+                            <button
+                                className="btn btn-warning rounded-pill px-5 fw-semibold"
+                                type="button"
+                                onClick={handleSave}
+                            >
+                                Save
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            className="btn btn-warning rounded-pill px-5 fw-semibold"
+                            type="button"
+                            onClick={() => {
+                                setDraft(profile)
+                                setIsEditing(true)
+                            }}
+                        >
+                            Edit
+                        </button>
+                    )}
                 </div>
-            </form>
+            </div>
         </section>
     )
 }

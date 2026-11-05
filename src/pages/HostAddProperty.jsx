@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BasicPropInfo } from '../components/HostSide/AddProperty/1-Basic-Property-Information.jsx'
 import { AmenitiesFacilities } from '../components/HostSide/AddProperty/2-Amenities-Facilities.jsx'
 import { PhotosMedia } from '../components/HostSide/AddProperty/3-Photos-Media.jsx'
@@ -11,7 +11,16 @@ import { useAuth } from '../context/AuthContext'
 import { saveHostProperty } from '../utils/hostData'
 import { useNotification } from '../context/NotificationContext'
 
-export function HostAddProperty({ onBack, onNext, onReject, onApprove, onRemoveUnhide, onRemoveHide, mode = 'add', property }) {
+export function HostAddProperty({
+    onBack,
+    onNext,
+    onReject,
+    onApprove,
+    mode = 'add',
+    property,
+    approveText = 'Approve',
+    rejectText = 'Reject'
+}) {
     const [step, setStep] = useState(1)
     const [draft, setDraft] = useState(property || {
         name: 'Maldives Resort',
@@ -26,35 +35,12 @@ export function HostAddProperty({ onBack, onNext, onReject, onApprove, onRemoveU
     const { showNotification } = useNotification()
 
     const isReview = mode === 'review'
-    const [reviewAction, setReviewAction] = useState(null)
 
-    const handleReject = () => {
-        if (reviewAction === 'rejected') {
-            onRemoveUnhide?.(draft)
-            return
+    useEffect(() => {
+        if (property) {
+            setDraft(property)
         }
-        if (reviewAction === 'approved') {
-            onRemoveHide?.(draft)
-            return
-        }
-
-        setReviewAction('rejected')
-        onReject?.(draft)
-    }
-
-    const handleApprove = () => {
-        if (reviewAction === 'approved') {
-            onRemoveHide?.(draft)
-            return
-        }
-        if (reviewAction === 'rejected') {
-            onRemoveUnhide?.(draft)
-            return
-        }
-
-        setReviewAction('approved')
-        onApprove?.(draft)
-    }
+    }, [property])
 
     const updateProperty = (changes) => {
         setDraft((current) => ({
@@ -174,21 +160,25 @@ export function HostAddProperty({ onBack, onNext, onReject, onApprove, onRemoveU
 
             {isReview && (
                 <div className="d-flex flex-wrap justify-content-end gap-3 mt-3 admin-property-review-actionsN">
-                    <button
-                        type="button"
-                        className="btn rounded-pill admin-property-review-rejectN admin-user-account-buttonN"
-                        onClick={handleReject}
-                    >
-                        {reviewAction ? 'Remove' : 'Reject'}
-                    </button>
+                    {onReject && (
+                        <button
+                            type="button"
+                            className="btn rounded-pill admin-property-review-rejectN admin-user-account-buttonN"
+                            onClick={() => onReject(draft)}
+                        >
+                            {rejectText}
+                        </button>
+                    )}
 
-                    <button
-                        type="button"
-                        className="btn rounded-pill admin-property-review-approveN admin-user-account-buttonN"
-                        onClick={handleApprove}
-                    >
-                        {reviewAction === 'rejected' ? 'Unhide' : reviewAction === 'approved' ? 'Hide' : 'Approved'}
-                    </button>
+                    {onApprove && (
+                        <button
+                            type="button"
+                            className="btn rounded-pill admin-property-review-approveN admin-user-account-buttonN"
+                            onClick={() => onApprove(draft)}
+                        >
+                            {approveText}
+                        </button>
+                    )}
                 </div>
             )}
         </main>

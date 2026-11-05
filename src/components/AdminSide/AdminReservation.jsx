@@ -27,11 +27,20 @@ export function AdminReservation({ preview = false }) {
         async function fetchReservations() {
             try {
                 setLoading(true)
-                const querySnapshot = await getDocs(collection(db, 'reservations'))
-                const loadedBookings = querySnapshot.docs.map(docItem => ({
-                    id: docItem.id,
-                    ...docItem.data()
-                }))
+                // Fetching from 'bookings' collection (or change back to 'reservations' if needed)
+                const querySnapshot = await getDocs(collection(db, 'bookings'))
+                const loadedBookings = querySnapshot.docs.map(docItem => {
+                    const data = docItem.data()
+                    return {
+                        id: docItem.id,
+                        guest: data.userEmail || data.guest || 'Guest',
+                        property: data.propertyName || data.property || 'Resort Property',
+                        startDate: data.date || data.startDate || '',
+                        endDate: data.endDate || data.date || '',
+                        status: data.status || 'Paid',
+                        ...data
+                    }
+                })
                 setBookings(loadedBookings)
             } catch (err) {
                 console.error('Error fetching reservations:', err)
@@ -153,15 +162,24 @@ export function AdminReservation({ preview = false }) {
                             {filteredBookings.map((booking) => (
                                 <tr key={booking.id}>
                                     <td>
-                                        <button type="button" className="btn btn-link p-0 text-reset" onClick={() => navigate(`${preview ? "/admin-preview" : "/admin"}/reservations/${encodeURIComponent(booking.id)}`, { state: { booking } })}>
+                                        <button 
+                                            type="button" 
+                                            className="btn btn-link p-0 text-reset" 
+                                            onClick={() => navigate(`${preview ? "/admin-preview" : "/admin"}/reservations/${encodeURIComponent(booking.id)}`, { state: { booking } })}
+                                        >
                                             {booking.id}
                                         </button>
                                     </td>
                                     <td>{booking.guest}</td>
                                     <td>{booking.property}</td>
                                     <td>
-                                        {formatDate(booking.startDate)} -<br />
-                                        {formatDate(booking.endDate)}
+                                        {formatDate(booking.startDate)}
+                                        {booking.endDate && booking.endDate !== booking.startDate && (
+                                            <>
+                                                <span> –</span><br />
+                                                {formatDate(booking.endDate)}
+                                            </>
+                                        )}
                                     </td>
                                     <td>{booking.status}</td>
                                 </tr>

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import sampleBedroomPhoto from '../../../images/Bustos Hero.png'
 
 const amenityOptions = [
     'Air Conditioning',
@@ -10,24 +9,12 @@ const amenityOptions = [
 
 const createBed = () => ({ type: 'Single Bed', quantity: '1' })
 
-const sampleBedroom = {
-    id: 1,
-    name: 'Bedroom 1',
-    capacity: '15-20 person',
-    beds: [
-        { type: 'Double Deck Bed', quantity: '4' },
-        { type: 'Extra Mattress', quantity: '2' },
-    ],
-    amenities: amenityOptions,
-    photo: sampleBedroomPhoto,
-    localPath: '',
-}
-
 export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, editNavigation }) => {
-    const [bedrooms, setBedrooms] = useState(property?.bedrooms || [sampleBedroom])
+    const [bedrooms, setBedrooms] = useState(property?.bedrooms || [])
     const [photo, setPhoto] = useState(null)
-    const [name, setName] = useState('Bedroom 1')
+    const [name, setName] = useState('')
     const [capacity, setCapacity] = useState('')
+    const [price, setPrice] = useState('')
     const [beds, setBeds] = useState([createBed()])
     const [amenities, setAmenities] = useState([])
     const [editingId, setEditingId] = useState(null)
@@ -83,8 +70,9 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
 
     const resetForm = () => {
         setPhoto(null)
-        setName(`Bedroom ${bedrooms.length + 1}`)
+        setName('')
         setCapacity('')
+        setPrice('')
         setBeds([createBed()])
         setAmenities([])
         setEditingId(null)
@@ -98,9 +86,10 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
             id: editingId ?? Date.now(),
             name,
             capacity,
+            price,
             beds,
             amenities,
-            photo: photo?.preview ?? existingBedroom?.photo ?? sampleBedroomPhoto,
+            photo: photo?.preview ?? existingBedroom?.photo ?? null,
             localPath: photo?.localPath ?? existingBedroom?.localPath ?? '',
             photoName: photo?.name ?? existingBedroom?.photoName,
             photoSize: photo?.size ?? existingBedroom?.photoSize,
@@ -119,6 +108,7 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
         setEditingId(bedroom.id)
         setName(bedroom.name)
         setCapacity(bedroom.capacity)
+        setPrice(bedroom.price || '')
         setBeds(bedroom.beds.map((bed) => ({ ...bed })))
         setAmenities([...bedroom.amenities])
         setPhoto(null)
@@ -132,12 +122,12 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
     }
 
     const describeBedroom = (bedroom) => {
-        const bedDescription = bedroom.beds
+        const bedDescription = (bedroom.beds || [])
             .filter((bed) => Number(bed.quantity) > 0)
             .map((bed) => `${bed.quantity} ${bed.type}${Number(bed.quantity) > 1 ? 's' : ''}`)
             .join(' and ')
 
-        return [bedroom.capacity, bedDescription].filter(Boolean).join(' • ')
+        return [bedroom.capacity ? `${bedroom.capacity} persons` : '', bedDescription].filter(Boolean).join(' • ')
     }
 
     return (
@@ -160,21 +150,23 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
                 </ol>
             </nav>
 
-            <h1 className="h5 fw-bold text-warning mb-4">5. Bedrooms</h1>
+            <h1 className="h5 fw-bold text-warning mb-3">5. Bedrooms</h1>
 
             <form onSubmit={saveBedroom}>
                 <div className="row g-4">
                     <div className="col-12 col-md-5">
-                        <label className="form-control host-bedroom-uploadN d-flex align-items-center justify-content-between cursor-pointer">
-                            <span>Upload Bedroom Photo</span>
-                            <i className="bi bi-upload" aria-hidden="true" />
-                            <input
-                                className="visually-hidden"
-                                type="file"
-                                accept="image/*"
-                                onChange={handlePhotoChange}
-                            />
-                        </label>
+                        <div className="mb-3">
+                            <label className="form-control host-bedroom-uploadN d-flex align-items-center justify-content-between cursor-pointer mb-0">
+                                <span>Upload Bedroom Photo</span>
+                                <i className="bi bi-upload" aria-hidden="true" />
+                                <input
+                                    className="visually-hidden"
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handlePhotoChange}
+                                />
+                            </label>
+                        </div>
 
                         {photo && (
                             <div className="host-photo-fileN d-flex align-items-center gap-2 rounded-2 px-2 py-1 mb-3">
@@ -199,30 +191,51 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
                             </div>
                         )}
 
-                        <label className="form-label small mb-1" htmlFor="bedroom-name">
-                            Bedroom Name
-                        </label>
-                        <input
-                            id="bedroom-name"
-                            className="form-control host-add-property-inputN mb-2"
-                            value={name}
-                            onChange={(event) => setName(event.target.value)}
-                            required
-                        />
+                        <div className="mb-3">
+                            <label className="form-label small mb-1" htmlFor="bedroom-name">
+                                Bedroom Name
+                            </label>
+                            <input
+                                id="bedroom-name"
+                                className="form-control host-add-property-inputN"
+                                placeholder="e.g. Master Bedroom"
+                                value={name}
+                                onChange={(event) => setName(event.target.value)}
+                                required
+                            />
+                        </div>
 
-                        <label className="form-label small mb-1" htmlFor="bedroom-capacity">
-                            Maximum Capacity
-                        </label>
-                        <input
-                            id="bedroom-capacity"
-                            className="form-control host-add-property-inputN mb-2"
-                            type="number"
-                            min="1"
-                            placeholder="e.g. 15"
-                            value={capacity}
-                            onChange={(event) => setCapacity(event.target.value)}
-                            required
-                        />
+                        <div className="mb-3">
+                            <label className="form-label small mb-1" htmlFor="bedroom-capacity">
+                                Maximum Capacity
+                            </label>
+                            <input
+                                id="bedroom-capacity"
+                                className="form-control host-add-property-inputN"
+                                type="number"
+                                min="1"
+                                placeholder="e.g. 15"
+                                value={capacity}
+                                onChange={(event) => setCapacity(event.target.value)}
+                                required
+                            />
+                        </div>
+
+                        <div className="mb-3">
+                            <label className="form-label small mb-1" htmlFor="bedroom-price">
+                                Bedroom Price (₱)
+                            </label>
+                            <input
+                                id="bedroom-price"
+                                className="form-control host-add-property-inputN"
+                                type="number"
+                                min="0"
+                                placeholder="e.g. 1500"
+                                value={price}
+                                onChange={(event) => setPrice(event.target.value)}
+                                required
+                            />
+                        </div>
 
                         <div className="d-flex gap-2">
                             <div className="flex-grow-1">
@@ -279,6 +292,10 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
                         >
                             + Add Another Bed
                         </button>
+
+                        <button type="submit" className="btn btn-warning rounded-pill px-4 py-2 w-100 mb-3">
+                            {editingId ? 'Save Bedroom' : 'Add Bedroom'}
+                        </button>
                     </div>
 
                     <div className="col-12 col-md-7">
@@ -304,76 +321,85 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
                             })}
                         </fieldset>
 
-                        <button type="submit" className="btn btn-warning rounded-pill w-50 mb-2">
-                            {editingId ? 'Save Bedroom' : 'Add Bedroom'}
-                        </button>
-
                         <section className="host-bedroom-listN rounded-3 p-2 p-md-3">
                             <h2 className="small host-amenity-headingN mb-3">Bedrooms</h2>
 
-                            <div className="d-flex flex-column gap-2">
-                                {bedrooms.map((bedroom) => (
-                                    <article
-                                        className="host-bedroom-cardN d-flex align-items-center gap-2 rounded-2 p-2"
-                                        key={bedroom.id}
-                                    >
-                                        <img
-                                            className="host-bedroom-imageN rounded-1 flex-shrink-0"
-                                            src={bedroom.photo}
-                                            alt=""
-                                            style={{ width: '48px', height: '48px', objectFit: 'cover' }}
-                                        />
-                                        <div className="min-w-0 flex-grow-1">
-                                            <h3 className="small text-warning mb-0">{bedroom.name}</h3>
-                                            <p className="host-bedroom-descriptionN mb-0 text-truncate">
-                                                {describeBedroom(bedroom)}
-                                            </p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="btn btn-sm text-white p-1"
-                                            aria-label={`Edit ${bedroom.name}`}
-                                            onClick={() => editBedroom(bedroom)}
+                            {bedrooms.length === 0 ? (
+                                <p className="small text-muted mb-0">No bedrooms added yet.</p>
+                            ) : (
+                                <div className="d-flex flex-column gap-2">
+                                    {bedrooms.map((bedroom) => (
+                                        <article
+                                            className="host-bedroom-cardN d-flex align-items-center gap-2 rounded-2 p-2"
+                                            key={bedroom.id}
                                         >
-                                            <i className="bi bi-pencil-fill" aria-hidden="true" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-sm text-white p-1"
-                                            aria-label={`Remove ${bedroom.name}`}
-                                            onClick={() => removeBedroom(bedroom.id)}
-                                        >
-                                            <i className="bi bi-x-lg" aria-hidden="true" />
-                                        </button>
-                                    </article>
-                                ))}
-                            </div>
+                                            {Boolean(bedroom.photo) && (
+                                                <img
+                                                    className="host-bedroom-imageN rounded-1 flex-shrink-0"
+                                                    src={bedroom.photo}
+                                                    alt=""
+                                                    style={{ width: '48px', height: '48px', objectFit: 'cover' }}
+                                                />
+                                            )}
+                                            <div className="min-w-0 flex-grow-1">
+                                                <div className="d-flex justify-content-between align-items-center">
+                                                    <h3 className="small text-warning mb-0">{bedroom.name}</h3>
+                                                    {bedroom.price && (
+                                                        <span className="small text-warning fw-bold">₱{Number(bedroom.price).toLocaleString()}</span>
+                                                    )}
+                                                </div>
+                                                <p className="host-bedroom-descriptionN mb-0 text-truncate">
+                                                    {describeBedroom(bedroom)}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm text-white p-1"
+                                                aria-label={`Edit ${bedroom.name}`}
+                                                onClick={() => editBedroom(bedroom)}
+                                            >
+                                                <i className="bi bi-pencil-fill" aria-hidden="true" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm text-white p-1"
+                                                aria-label={`Remove ${bedroom.name}`}
+                                                onClick={() => removeBedroom(bedroom.id)}
+                                            >
+                                                <i className="bi bi-x-lg" aria-hidden="true" />
+                                            </button>
+                                        </article>
+                                    ))}
+                                </div>
+                            )}
                         </section>
                     </div>
                 </div>
-
-                <hr className="host-add-property-dividerN mt-5 mb-3" />
-
-                <div className="d-flex justify-content-end gap-2">
-                    <button
-                        type="button"
-                        className="btn host-add-property-backN rounded-pill px-5 py-2"
-                        onClick={onBack}
-                    >
-                        Back
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn-warning rounded-pill px-5 py-2 host-add-property-nextN"
-                        onClick={() => {
-                            onPropertyChange?.({ bedrooms })
-                            onNext?.()
-                        }}
-                    >
-                        Next
-                    </button>
-                </div>
             </form>
+
+            <hr className="host-add-property-dividerN mt-5 mb-3" />
+
+            <div className="d-flex justify-content-end gap-2">
+                <button
+                    type="button"
+                    className="btn host-add-property-backN rounded-pill px-5 py-2"
+                    onClick={onBack}
+                >
+                    Back
+                </button>
+                <button
+                    type="button"
+                    className="btn btn-warning rounded-pill px-5 py-2 host-add-property-nextN"
+                    onClick={() => {
+                        onPropertyChange?.({ bedrooms })
+                        onNext?.()
+                    }}
+                >
+                    Next
+                </button>
+            </div>
         </section>
     )
 }
+
+export default Bedrooms

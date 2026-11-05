@@ -6,7 +6,9 @@ import { Link } from 'react-router-dom'
 import { useLocation } from 'react-router-dom'
 import StripePaymentN from '../components/StripePaymentN.jsx'
 import PaymenSuccessfulStripe from '../components/PaymenSuccessfulStripe.jsx'
-
+import { db } from '../firebase' // Adjust path to your firebase config if needed
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { useAuth } from '../context/AuthContext'
 
 const PENDING_PAYMENT_STORAGE_KEY = 'district2rismo.pendingPayment'
 
@@ -21,6 +23,7 @@ function readPendingPayment() {
 function ConfirmPayment() {
     const location = useLocation()
     const { state } = location
+    const { currentUser } = useAuth()
     const sessionId = new URLSearchParams(location.search).get('session_id')
     const [pendingPayment, setPendingPayment] = useState(() =>
         state?.booking ? { booking: state.booking } : readPendingPayment()
@@ -70,6 +73,11 @@ function ConfirmPayment() {
                     paymentStatus: data.payment_status,
                 })
                 setShowPaymentSuccess(data.payment_status === 'paid')
+                
+                // Save to Firebase upon successful Stripe verification
+                if (data.payment_status === 'paid' && booking) {
+                    saveBookingToFirebase(booking)
+                }
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     setPaymentResult({
@@ -93,24 +101,59 @@ function ConfirmPayment() {
         setPendingPayment(savedPayment)
     }, [booking, step, payOption, method])
 
-    if (!booking) {
-        return <p>Booking details are missing. Please start your booking again.</p>
+    const saveBookingToFirebase = async (bookingData) => {
+        try {
+            await addDoc(collection(db, 'bookings'), {
+                userId: currentUser?.uid || 'guest',
+                userEmail: currentUser?.email || 'guest',
+                propertyId: bookingData?.property?.id || null,
+                propertyName: bookingData?.property?.name || bookingData?.resort?.name || 'Resort Property',
+                date: bookingData?.date,
+                session: bookingData?.session,
+                guestsCount: bookingData?.guestsCount || 1,
+                cottages: bookingData?.cottages || [],
+                tourPrice: bookingData?.tourPrice || 0,
+                cottagesPrice: bookingData?.cottagesPrice || 0,
+                total: bookingData?.total || 0,
+                payOption,
+                method,
+                status: 'Confirmed',
+                createdAt: serverTimestamp(),
+            })
+        } catch (err) {
+            console.error('Error saving booking to Firebase:', err)
+        }
     }
 
-    const guests = booking?.guests
+    const handleConfirmSimulatedBooking = async () => {
+        await saveBookingToFirebase(booking)
+        setShowPaymentSuccess(true)
+    }
 
-    const total =
-        (guests?.adult || 0) * 200 +
-        (guests?.kids || 0) * 180 +
-        (guests?.senior || 0) * 160 +
-        (typeof booking?.cottage?.price === 'number'
-            ? booking.cottage.price
-            : 0)
+    if (!booking) {
+        return <p className="text-white p-5">Booking details are missing. Please start your booking again.</p>
+    }
+
+    const tourPrice = Number(booking.tourPrice) || Number(booking.property?.price) || 15000
+    const cottagesPrice = Number(booking.cottagesPrice) || (booking.cottages || []).reduce((sum, c) => sum + (Number(c.price) || 0), 0)
+    const total = Number(booking.total) || (tourPrice + cottagesPrice)
+    const halfTotal = total / 2
+
+    const rawGuestCount = Number(booking.guestsCount) || 1
+    // Simplified single guest count object for Stripe and Firebase compatibility
+    const normalizedGuests = {
+        total: rawGuestCount
+    }
+
+    const stripeBooking = {
+        ...booking,
+        guests: normalizedGuests,
+        total: payOption === 'partial' ? halfTotal : total,
+    }
 
     const money = (amount) =>
-        `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+        `₱${(Number(amount) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
 
-    // Pwedeng bumalik sa step na natapos na, pero hindi lumaktaw pasulong
     const goTo = (n) => {
         if (n < step) setStep(n)
     }
@@ -129,7 +172,7 @@ function ConfirmPayment() {
 
                 <div className='d-flex align-items-center gap-3 mb-4'>
 
-                    <Link className='payment-back-button' to='/resorts/:id' aria-label='Go back'>
+                    <Link className='payment-back-button' to={booking?.property?.id ? `/resorts/${booking.property.id}` : '/resorts'} aria-label='Go back'>
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M19 12H5m0 0 7 7m-7-7 7-7" />
                         </svg>
@@ -145,10 +188,10 @@ function ConfirmPayment() {
                         {/* STEP 1 */}
                         {step === 1 ? (
                             <div className='pay-card mb-3'>
-                                <h2 className='step-title'>1. Choose when to pay</h2>
+                                <h2 className='step-title'>Choose when to pay</h2>
 
                                 <label className='pay-option d-flex justify-content-between align-items-center'>
-                                    <span>Pay ₱2,740.00 now</span>
+                                    <span>Pay {money(total)} now</span>
                                     <input
                                         type='radio'
                                         name='payOption'
@@ -163,7 +206,7 @@ function ConfirmPayment() {
                                     <div>
                                         <span>Pay part now, part later</span>
                                         <small className='d-block pay-note'>
-                                            ₱1,370.00 now, ₱1,370.00 charged on Oct 24. No extra fees.
+                                            {money(halfTotal)} now, {money(halfTotal)} charged later. No extra fees.
                                         </small>
                                     </div>
                                     <input
@@ -191,7 +234,7 @@ function ConfirmPayment() {
                                 className='pay-card pay-card-collapsed clickable mb-3'
                                 onClick={() => goTo(1)}
                             >
-                                <h2 className='step-title m-0'>1. Choose when to pay</h2>
+                                <h2 className='step-title m-0'>Choose when to pay</h2>
                             </div>
                         )}
 
@@ -258,13 +301,22 @@ function ConfirmPayment() {
                                             </p>
                                         )
                                     ) : (
-                                        <StripePaymentN booking={booking} payOption={payOption} />
+                                        <StripePaymentN booking={stripeBooking} payOption={payOption} />
                                     )
                                 ) : (
-                                    <p className="pay-note">
-                                        {methods.find((item) => item.key === method).label} payments
-                                        are not connected yet. Choose Credit / Debit Card to pay with Stripe.
-                                    </p>
+                                    <div>
+                                        <p className="pay-note mb-3">
+                                            {methods.find((item) => item.key === method).label} payments
+                                            are not connected yet. Click below to confirm your booking.
+                                        </p>
+                                        <button
+                                            type="button"
+                                            className="button next-btn w-100"
+                                            onClick={handleConfirmSimulatedBooking}
+                                        >
+                                            Confirm Booking ({payOption === 'partial' ? money(halfTotal) : money(total)})
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         ) : (
@@ -278,49 +330,43 @@ function ConfirmPayment() {
                         <div className='pay-card summary-card'>
 
                             <div className='d-flex gap-3 mb-4'>
-                                <img className='summary-img' src={BaliwagHero} alt='Galilee Wonderland Resort' />
+                                <img className='summary-img' src={booking?.property?.image || booking?.resort?.image || BaliwagHero} alt='Resort' />
                                 <div>
-                                    <h3 className="summary-name">{booking.resort.name}</h3>
-                                    <span className="summary-town">{booking.resort.location}</span>
+                                    <h3 className="summary-name">{booking?.property?.name || booking?.resort?.name || 'Resort'}</h3>
+                                    <span className="summary-town">{booking?.property?.location || booking?.resort?.location || 'Bulacan'}</span>
                                     <small className='d-block pay-note'>★ 4.7 (246 Reviews)</small>
                                 </div>
                             </div>
 
-                            <h4 className='field-label'>Guests</h4>
-                            <div className='guest-row d-flex justify-content-between align-items-center'>
-                                <span className='guest-label'>Adults, (Age 13+)</span>
-                                <div className='counter d-flex align-items-center gap-2'>
-                                    <button aria-label='Decrease adults'>−</button>
-                                    <span>6</span>
-                                    <button aria-label='Increase adults'>+</button>
-                                </div>
-                            </div>
-                            <div className='guest-row d-flex justify-content-between align-items-center'>
-                                <span className='guest-label'>Kids, (Ages 2-12)</span>
-                                <div className='counter d-flex align-items-center gap-2'>
-                                    <button aria-label='Decrease kids'>−</button>
-                                    <span>3</span>
-                                    <button aria-label='Increase kids'>+</button>
-                                </div>
-                            </div>
-                            <div className='guest-row d-flex justify-content-between align-items-center'>
-                                <span className='guest-label'>Infants, (Under 2)</span>
-                                <div className='counter d-flex align-items-center gap-2'>
-                                    <button aria-label='Decrease infants' disabled>−</button>
-                                    <span>0</span>
-                                    <button aria-label='Increase infants'>+</button>
-                                </div>
+                            <h4 className='field-label'>Guests Count</h4>
+                            <div className='guest-row d-flex justify-content-between align-items-center mb-2'>
+                                <span className='guest-label'>Total Guests</span>
+                                <span className='fw-bold'>{rawGuestCount} Guests</span>
                             </div>
 
-                            <h4 className='field-label mt-3'>Session</h4>
-                            <select className='form-select pay-input'>
-                                <option>Day Tour</option>
-                                <option>Night Swimming</option>
-                                <option>Overnight</option>
-                            </select>
+                            <h4 className='field-label mt-3'>Tour Session</h4>
+                            <div className='guest-row d-flex justify-content-between align-items-center mb-2'>
+                                <span className='guest-label'>Selected Tour</span>
+                                <span className='fw-bold'>{booking.session || 'Day Tour'}</span>
+                            </div>
 
                             <h4 className='field-label mt-3'>Date</h4>
-                            <input type='date' className='form-control pay-input' defaultValue='2026-10-28' />
+                            <div className='guest-row d-flex justify-content-between align-items-center mb-2'>
+                                <span className='guest-label'>Check-in Date</span>
+                                <span className='fw-bold'>{booking.date || 'Today'}</span>
+                            </div>
+
+                            {booking?.cottages && booking.cottages.length > 0 && (
+                                <>
+                                    <h4 className='field-label mt-3'>Bedrooms / Cottages</h4>
+                                    {booking.cottages.map((c, idx) => (
+                                        <div key={idx} className='guest-row d-flex justify-content-between align-items-center small text-muted'>
+                                            <span>• {c.name}</span>
+                                            <span>{money(c.price)}</span>
+                                        </div>
+                                    ))}
+                                </>
+                            )}
 
                             <hr className='pay-divider my-4' />
 
@@ -345,7 +391,3 @@ function ConfirmPayment() {
 }
 
 export default ConfirmPayment
-
-
-
-

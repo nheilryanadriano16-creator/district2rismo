@@ -20,13 +20,11 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 app.use(cors({ origin: FRONTEND_URL }))
 app.use(express.json())
 
-// Ensure public/uploads directory exists on disk
 const uploadDir = path.join(__dirname, '../public/uploads')
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true })
 }
 
-// Configure Multer storage to save files into public/uploads with original filenames
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, uploadDir)
@@ -38,14 +36,12 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage })
 
-// Static middleware to serve files from public/uploads
 app.use('/uploads', express.static(uploadDir))
 
 app.get('/', (req, res) => {
     res.send('District2Rismo payment & upload API is running.')
 })
 
-// File upload endpoint for local disk storage
 app.post('/api/upload', upload.single('file'), (req, res) => {
     try {
         if (!req.file) {
@@ -65,45 +61,39 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 app.post('/create-checkout-session', async (req, res) => {
     try {
         const { booking, payOption } = req.body || {}
-        const guests = booking?.guests
 
-        const guestCounts = [
-            guests?.adult,
-            guests?.kids,
-            guests?.senior,
-        ]
-
-        const validCounts = guestCounts.every(
-            (count) => Number.isInteger(count) && count >= 0 && count <= 100
-        )
-
-        if (!validCounts || guestCounts.reduce((sum, count) => sum + count, 0) < 1) {
-            return res.status(400).json({ error: 'Invalid guest counts.' })
+        if (!booking) {
+            return res.status(400).json({ error: 'Missing booking details.' })
         }
 
         if (!['full', 'partial'].includes(payOption)) {
             return res.status(400).json({ error: 'Invalid payment option.' })
         }
 
-        if (!['Day Tour', 'Night Tour', 'Flexible'].includes(booking.session)) {
-            return res.status(400).json({ error: 'Invalid booking session.' })
-        }
-
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(booking.date || '')) {
+        if (!booking.date || !/^\d{4}-\d{2}-\d{2}$/.test(booking.date)) {
             return res.status(400).json({ error: 'Invalid booking date.' })
         }
 
-        const totalPesos =
-            guests.adult * 200 +
-            guests.kids * 180 +
-            guests.senior * 160
+        const guestsCount = Number(booking.guestsCount) || Number(booking.guests?.total) || 1
+        if (isNaN(guestsCount) || guestsCount < 1 || guestsCount > 100) {
+            return res.status(400).json({ error: 'Invalid guest counts.' })
+        }
+
+        const tourPrice = Number(booking.tourPrice) || 15000
+        const cottagesPrice = Number(booking.cottagesPrice) || (booking.cottages || []).reduce((sum, c) => sum + (Number(c.price) || 0), 0)
+        const totalPesos = Number(booking.total) || (tourPrice + cottagesPrice)
+
+        if (isNaN(totalPesos) || totalPesos <= 0) {
+            return res.status(400).json({ error: 'Invalid total amount.' })
+        }
 
         const amountPesos =
             payOption === 'partial'
                 ? Math.ceil(totalPesos / 2)
                 : totalPesos
 
-        const amountInCentavos = amountPesos * 100
+        const amountInCentavos = Math.round(amountPesos * 100)
+        const cottagesSummary = (booking.cottages || []).map(c => c.name).join(', ')
 
         const session = await stripe.checkout.sessions.create({
             ui_mode: 'elements',
@@ -113,8 +103,8 @@ app.post('/create-checkout-session', async (req, res) => {
                     price_data: {
                         currency: 'php',
                         product_data: {
-                            name: 'Resort booking',
-                            description: `${booking.session} on ${booking.date}`,
+                            name: String(booking?.resort?.name || booking?.property?.name || 'Resort Booking'),
+                            description: `${booking.session || 'Tour'} on ${booking.date}${cottagesSummary ? ` | Bedrooms: ${cottagesSummary}` : ''}`,
                         },
                         unit_amount: amountInCentavos,
                     },
@@ -123,14 +113,12 @@ app.post('/create-checkout-session', async (req, res) => {
             ],
             return_url: `${FRONTEND_URL}/pay?session_id={CHECKOUT_SESSION_ID}`,
             metadata: {
-                resortName: String(booking.resortName || 'Resort'),
-                session: booking.session,
-                date: booking.date,
-                payOption,
-                adults: String(guests.adult),
-                kids: String(guests.kids),
-                seniors: String(guests.senior),
-                cottageName: String(booking.cottageName || ''),
+                resortName: String(booking?.resort?.name || booking?.property?.name || 'Resort'),
+                session: String(booking.session || 'Tour'),
+                date: String(booking.date),
+                payOption: String(payOption),
+                guestsCount: String(guestsCount),
+                cottages: String(cottagesSummary),
             },
         })
 
@@ -141,7 +129,7 @@ app.post('/create-checkout-session', async (req, res) => {
         return res.json({ clientSecret: session.client_secret })
     } catch (error) {
         console.error('Stripe Checkout error:', error.message)
-        return res.status(500).json({ error: 'Unable to start payment.' })
+        return res.status(500).json({ error: error.message || 'Unable to start payment.' })
     }
 })
 

@@ -4,27 +4,68 @@ import Offcanvas from 'react-bootstrap/Offcanvas'
 import Logo2Rismo from '../../images/2Rismo Logo.png'
 import { HostSideBarN } from './HostSideBarN.jsx'
 import { useAuth } from '../../context/AuthContext'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 
 export const HostNavBar = ({ activeSection, onSelect, preview = false, onLogout }) => {
     const [showMenu, setShowMenu] = useState(false)
-    const dashboardPath = preview ? '/host-preview' : '/host'
-    const profilePath = preview ? '/host-profile-preview' : '/host/profile'
+    const [firestoreFirstName, setFirestoreFirstName] = useState('')
+    const dashboardPath =  '/host'
+    const profilePath = '/host/profile'
     const navigate = useNavigate()
-    const { logout } = useAuth()
+
+    const auth = useAuth() || {}
+    const { logout, user } = auth
+
+    useEffect(() => {
+        const fetchUserData = async () => {
+            const uid = user?.uid || auth?.currentUser?.uid
+            if (uid) {
+                try {
+                    const userDocRef = doc(db, 'users', uid)
+                    const userSnap = await getDoc(userDocRef)
+                    if (userSnap.exists()) {
+                        const data = userSnap.data()
+                        if (data?.firstName) {
+                            setFirestoreFirstName(data.firstName)
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching user profile from Firestore:', error)
+                }
+            }
+        }
+
+        fetchUserData()
+    }, [user, auth])
+
+    const getInitial = () => {
+        const activeUser = user || auth?.currentUser
+        const name = firestoreFirstName || activeUser?.displayName
+
+        if (name && typeof name === 'string' && name.trim()) {
+            return name.trim().charAt(0).toUpperCase()
+        }
+
+        return null
+    }
+
+    const firstInitial = getInitial()
 
     const handleLogout = async () => {
         if (onLogout) {
             await onLogout()
             return
         }
-        await logout()
+        if (logout) {
+            await logout()
+        }
         navigate('/', { replace: true })
     }
 
     const handleSelect = (section) => {
         onSelect?.(section)
         setShowMenu(false)
-
     }
 
     const [isScrolled, setIsScrolled] = useState(false)
@@ -53,10 +94,15 @@ export const HostNavBar = ({ activeSection, onSelect, preview = false, onLogout 
                 <div className="d-flex align-items-center gap-2">
                     <Link
                         to={profilePath}
-                        className="host-profile-placeholderN rounded-circle border border-warning d-flex align-items-center justify-content-center"
+                        className="host-profile-placeholderN rounded-circle border border-warning d-flex align-items-center justify-content-center text-warning fw-bold text-decoration-none"
                         aria-label="Open my profile"
+                        style={{ width: '40px', height: '40px', fontSize: '16px', lineHeight: '1' }}
                     >
-                        <i className="bi bi-person-fill" aria-hidden="true" />
+                        {firstInitial ? (
+                            <span>{firstInitial}</span>
+                        ) : (
+                            <i className="bi bi-person-fill" aria-hidden="true" />
+                        )}
                     </Link>
 
                     <button

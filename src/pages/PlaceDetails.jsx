@@ -1,39 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
+import { doc, getDoc, updateDoc, increment } from 'firebase/firestore'
+import { db } from '../firebase'
 import NavBar from '../components/NavBarDetails.jsx'
 import PhotoGallery from '../components/PhotoGallery.jsx'
 import CottageCard from '../components/StayCard.jsx'
 import Footer from '../components/Footer.jsx'
 import BookingCard from '../components/BookingCard.jsx'
-import CottageImg from '../images/Baliwag Hero.png'
-import Img1 from '../images/Baliwag Featured.png'
-import Img2 from '../images/Bustos Hero.png'
-import Img3 from '../images/Plaridel Hero.png'
-import Img4 from '../images/Baliwag Hero.png'
-import Img5 from '../images/Baliwag Featured.png'
+import resortImage from '../images/Bustos Hero.png'
+import { MapContainer, TileLayer, Marker } from 'react-leaflet'
+import L from 'leaflet'
 
-const cottages = [
-    { id: 1, image: CottageImg, name: 'Bedroom 1', capacity: '15 ', price: '4 Double Deck Beds and 2 Extra Mattress' },
-    { id: 2, image: CottageImg, name: 'Bedroom 2', capacity: '25', price: '4 Double Deck Beds and 2 Extra Mattress' },
-]
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
+import markerIcon from 'leaflet/dist/images/marker-icon.png'
+import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 
-const ratingCounts = { 5: 170, 4: 40, 3: 18, 2: 9, 1: 8 }
-
-const categoryRatings = [
-    { label: 'Cleanliness', score: 4.1 },
-    { label: 'Pools & Attractions', score: 4.1 },
-    { label: 'Facilities & Amenities', score: 4.1 },
-    { label: 'Staff & Service', score: 4.1 },
-    { label: 'Value for Money', score: 4.1 },
-    { label: 'Safety', score: 4.1 },
-]
-
-const reviews = [
-    { id: 1, name: 'Mj Massalang', rating: 5, date: 'Oct 2026', text: 'lorem ipsum dolor sit amet consectetur adipiscing elit optio est id sit dolore at vel est ad ducimus mollitia assumenda at qui tempore quod magna' },
-    { id: 2, name: 'Nheil Ryan', rating: 5, date: 'Oct 2026', text: 'lorem ipsum dolor sit amet consectetur adipiscing elit optio est id sit dolore at vel est ad ducimus mollitia assumenda at qui tempore quod magna' },
-    { id: 3, name: 'Mark Gian', rating: 4, date: 'Oct 2026', text: 'lorem ipsum dolor sit amet consectetur adipiscing elit optio est id sit dolore at vel est ad ducimus mollitia assumenda at qui tempore quod magna' },
-    { id: 4, name: 'Ron Roberto', rating: 5, date: 'Oct 2026', text: 'lorem ipsum dolor sit amet consectetur adipiscing elit optio est id sit dolore at vel est ad ducimus mollitia assumenda at qui tempore quod magna' },
-]
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+    iconUrl: markerIcon,
+    iconRetinaUrl: markerIcon2x,
+    shadowUrl: markerShadow,
+})
 
 function Star({ size = 16, filled = true }) {
     return (
@@ -46,22 +33,36 @@ function Star({ size = 16, filled = true }) {
 
 function PlaceDetails() {
     const { id } = useParams()
+    const navigate = useNavigate()
     const [bookingOpen, setBookingOpen] = useState(false)
+    const [property, setProperty] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [showMore, setShowMore] = useState(false)
     const bookingTriggerRef = useRef(null)
     const bookingCloseRef = useRef(null)
 
-    const images = [Img1, Img2, Img3, Img4, Img5]
-    const resort = {
-        name: 'Galilee Wonderland Resort',
-        location: 'Bustos, Bulacan',
-        image: Img2,
-        rating: 4.7,
-        reviewCount: 245,
-    }
+    useEffect(() => {
+        const fetchPropertyDetails = async () => {
+            if (!id) return
+            try {
+                setLoading(true)
+                const docRef = doc(db, 'properties', id)
+                const docSnap = await getDoc(docRef)
+                if (docSnap.exists()) {
+                    setProperty({ id: docSnap.id, ...docSnap.data() })
+                    await updateDoc(docRef, {
+                        views: increment(1)
+                    })
+                }
+            } catch (err) {
+                console.error(err)
+            } finally {
+                setLoading(false)
+            }
+        }
 
-    const totalReviews = Object.values(ratingCounts).reduce((a, b) => a + b, 0)
-    const averageRating =
-        Object.entries(ratingCounts).reduce((sum, [star, n]) => sum + Number(star) * n, 0) / totalReviews
+        fetchPropertyDetails()
+    }, [id])
 
     useEffect(() => {
         if (!bookingOpen) return
@@ -82,10 +83,79 @@ function PlaceDetails() {
         }
     }, [bookingOpen])
 
+    if (loading) {
+        return (
+            <>
+                <NavBar />
+                <div className='destinations-page place-details-page mx-3 text-white text-center py-5'>
+                    <h2 className='mt-5'>Loading property details...</h2>
+                </div>
+                <Footer />
+            </>
+        )
+    }
+
+    if (!property) {
+        return (
+            <>
+                <NavBar />
+                <div className='destinations-page place-details-page mx-3 text-white text-center py-5'>
+                    <h2 className='mt-5'>Property not found.</h2>
+                </div>
+                <Footer />
+            </>
+        )
+    }
+
+    const name = property?.name || 'Untitled Property'
+    const location = property?.location || property?.address || (property?.municipality ? `${property.municipality}, Bulacan` : 'Location Not Specified')
+    const galleryImages = property?.galleryImages?.length ? property.galleryImages : []
+    const images = galleryImages.length > 0 ? galleryImages : [property?.image || resortImage]
+
+    const features = property?.amenities?.length
+        ? Array.from({ length: Math.ceil(property.amenities.length / 2) }, (_, index) => [
+            property.amenities[index * 2],
+            property.amenities[index * 2 + 1] || '',
+        ])
+        : []
+
+    const bedrooms = property?.bedrooms || property?.cottages || []
+    const tours = property?.tourSettings
+    const hasActiveTours = tours?.day?.enabled || tours?.night?.enabled || tours?.flexible?.enabled
+
+    const bedroomDescription = (bedroom) => bedroom.description || [
+        bedroom.capacity ? `${bedroom.capacity} guests` : '',
+        bedroom.beds?.map((bed) => `${bed.quantity} ${bed.type}`).join(' and '),
+    ].filter(Boolean).join(' • ')
+
+    const resort = {
+        name: name,
+        location: location,
+        image: property?.image || resortImage,
+        rating: property?.rating || 0,
+        reviewCount: property?.reviewCount || 0,
+        price: property?.price || property?.rate || tours?.day?.price || 15000,
+    }
+
+    const coordinates = property?.coordinates || { lat: 14.9547, lng: 120.9575 }
+
     return (
         <>
             <div className={`destinations-page place-details-page mx-3${bookingOpen ? ' booking-open' : ''}`}>
                 <NavBar />
+
+                <nav aria-label="Breadcrumb" className="small mb-3 mt-3 mx-3">
+                    <button
+                        type="button"
+                        className="btn btn-link p-0 text-warning text-decoration-none"
+                        onClick={() => navigate('/destination')}
+                    >
+                        Destinations
+                    </button>
+                    <span className="mx-1 text-white">›</span>
+                    <span className="text-warning">Property Details</span>
+                </nav>
+
                 <PhotoGallery images={images} />
 
                 <div className='details-parent-container row'>
@@ -93,8 +163,8 @@ function PlaceDetails() {
 
                         <div className='place-name my-4 d-flex flex-column gap-4'>
                             <div>
-                                <h1 className='lh-1'>Fabian's Azzure Private Resort</h1>
-                                <h3>Brgy. Pinagbarilan, Baliwag, Bulacan</h3>
+                                <h1 className='lh-1'>{name}</h1>
+                                <h3>{location}</h3>
                             </div>
                         </div>
 
@@ -105,81 +175,115 @@ function PlaceDetails() {
 
                             <table className='rate-table'>
                                 <tbody>
-                                    <tr>
-                                        <td>Day Tour</td>
-                                        <td>8:00 AM – 5:00 PM</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Night Tour</td>
-                                        <td>5:00 PM – 3:00 PM (next day)</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Flexible</td>
-                                        <td>Starts 8:00 AM or 5:00 PM - Ends 5:00 PM</td>
-                                    </tr>
+                                    {tours?.day?.enabled && (
+                                        <tr>
+                                            <td>Day Tour</td>
+                                            <td>{`${tours.day.checkIn} – ${tours.day.checkOut}`}</td>
+                                        </tr>
+                                    )}
+                                    {tours?.night?.enabled && (
+                                        <tr>
+                                            <td>Night Tour</td>
+                                            <td>{`${tours.night.checkIn} – ${tours.night.checkOut}`}</td>
+                                        </tr>
+                                    )}
+                                    {tours?.flexible?.enabled && (
+                                        <tr>
+                                            <td>Flexible</td>
+                                            <td>Flexible schedule available</td>
+                                        </tr>
+                                    )}
+                                    {!hasActiveTours && (
+                                        <tr>
+                                            <td colSpan="2" className="text-muted">No active tour schedules configured.</td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
 
-                            <h3 className='rate-title mb-2'>Guest Accommodation</h3>
+                            {(property?.capacity || property?.parkingSpace) && (
+                                <>
+                                    <h3 className='rate-title mb-2 mt-4'>Guest Accommodation</h3>
+                                    <table className='rate-table'>
+                                        <tbody>
+                                            {property?.capacity && (
+                                                <tr>
+                                                    <td>The Property can accommodate up to {property.capacity} Guests</td>
+                                                    <td></td>
+                                                </tr>
+                                            )}
+                                            {property?.parkingSpace && (
+                                                <tr>
+                                                    <td>Space for up to {property.parkingSpace} cars</td>
+                                                    <td></td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </>
+                            )}
 
-                            <table className='rate-table'>
-                                <tbody>
-                                    <tr>
-                                        <td>The Property can accommodate 50 - 100 Guests</td>
-                                        <td></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Space for up to 30 cars</td>
-                                        <td></td>
-                                    </tr>
-
-                                </tbody>
-                            </table>
-
-                            <p className='rate-desc'>
-                                Enjoy a relaxing getaway at Fabian’s Azzure Private Resort, a place where you can unwind, spend quality time with family and friends, and create memorable moments away from the everyday hustle. Discover a private retreat for your next celebration, gathering, or well-deserved escape.
-                            </p>
-
-                            <button className='button'>Show more</button>
+                            {property?.description && (
+                                <>
+                                    <p className='rate-desc mt-3'>
+                                        {showMore
+                                            ? property.description
+                                            : `${property.description.slice(0, 180)}${property.description.length > 180 ? '...' : ''}`}
+                                    </p>
+                                    {property.description.length > 180 && (
+                                        <button
+                                            type='button'
+                                            className='btn btn-warning rounded-pill px-4'
+                                            onClick={() => setShowMore((value) => !value)}
+                                        >
+                                            {showMore ? 'Show less' : 'Show more'}
+                                        </button>
+                                    )}
+                                </>
+                            )}
                         </div>
 
                         <hr className='my-4' />
 
-                        <div className='offers'>
-                            <h2 className='detail-title d-flex gap-2 align-items-center'>
-                                What this place offers
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" className="bi bi-chevron-right" viewBox="0 0 16 16">
-                                    <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708" />
-                                </svg>
-                            </h2>
+                        {features.length > 0 && (
+                            <div className='offers'>
+                                <h2 className='detail-title d-flex gap-2 align-items-center'>
+                                    What this place offers
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" className="bi bi-chevron-right" viewBox="0 0 16 16">
+                                        <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708" />
+                                    </svg>
+                                </h2>
 
-                            {/* DEPENDE SA KUNG ANO ICHECHECK NG OWNER SYEMPRE */}
-                            <ul className='offers-list'>
-                                <li>Adult  Pool</li>
-                                <li>Kiddie Pool</li>
-                                <li>Bedrooms</li>
-                                <li>Kitchen</li>
-                                <li>Food and refreshments</li>
-                                <li>Water Attractions</li>
-                                <li>Sports and recreation</li>
-                                <li>Wellness and relaxation</li>
-                            </ul>
-                        </div>
-
-                        <div className='cottages my-4'>
-                            <h2 className='detail-title'>Bedrooms</h2>
-
-                            <div className='cottage-grid'>
-                                {cottages.map(c => (
-                                    <CottageCard key={c.id} {...c} />
-                                ))}
+                                <ul className='offers-list'>
+                                    {property.amenities.map((amenity, idx) => (
+                                        <li key={idx}>{amenity}</li>
+                                    ))}
+                                </ul>
                             </div>
-                        </div>
+                        )}
+
+                        {bedrooms.length > 0 && (
+                            <div className='cottages my-4'>
+                                <h2 className='detail-title'>Bedrooms</h2>
+
+                                <div className='cottage-grid'>
+                                    {bedrooms.map((bedroom, index) => (
+                                        <CottageCard 
+                                            key={bedroom.id || index} 
+                                            image={bedroom.photo || bedroom.image || resortImage}
+                                            name={bedroom.name}
+                                            capacity={bedroom.capacity}
+                                            price={bedroomDescription(bedroom)}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                     </div>
 
                     <div className='booking col-lg-5 my-4 position-sticky align-self-start'>
-                        <BookingCard cottages={cottages} resort={resort} />
+                        <BookingCard cottages={bedrooms} resort={resort} property={property} />
                     </div>
                 </div>
 
@@ -222,84 +326,25 @@ function PlaceDetails() {
                             &times;
                         </button>
                     </div>
-                    <BookingCard cottages={cottages} resort={resort} />
-                </div>
-
-                <div className='reviews row'>
-                    <h2 className='detail-title'>Reviews</h2>
-
-                    <div className='col-lg-7 col-12'>
-                        <div className='chart'>
-                            <div className='overall-review'>
-                                <Star size={48} />
-                                <div className='rating-summary'>
-                                    <h3>{averageRating.toFixed(1)}</h3>
-                                    <span>{totalReviews} reviews</span>
-                                </div>
-                            </div>
-
-                            <div className='breakdown-review'>
-                                {[5, 4, 3, 2, 1].map(star => (
-                                    <div className='breakdown-row' key={star}>
-                                        <span className='breakdown-label'>{star}</span>
-                                        <div className='breakdown-track'>
-                                            <div
-                                                className='breakdown-fill'
-                                                style={{ width: `${(ratingCounts[star] / totalReviews) * 100}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className='category-breakdown'>
-                            <h4>Rating Breakdown</h4>
-                            {categoryRatings.map(c => (
-                                <div className='category-row' key={c.label}>
-                                    <span className='category-label'>{c.label}</span>
-                                    <span className='category-score'>{c.score.toFixed(1)}</span>
-                                    <div className='breakdown-track'>
-                                        <div className='breakdown-fill' style={{ width: `${(c.score / 5) * 100}%` }} />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className='col-lg-5 col-12'>
-                        <div className='comments'>
-                            {reviews.map(r => (
-                                <div className='comment-card' key={r.id}>
-                                    <div className='avatar'>{r.name[0]}</div>
-                                    <div className='comment-body'>
-                                        <div className='comment-header'>
-                                            <span className='comment-name'>{r.name}</span>
-                                            <div className='comment-stars'>
-                                                {[1, 2, 3, 4, 5].map(n => (
-                                                    <Star key={n} size={14} filled={n <= r.rating} />
-                                                ))}
-                                            </div>
-                                            <small className='comment-date'>{r.date}</small>
-                                        </div>
-                                        <p className='comment-text'>{r.text}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    <BookingCard cottages={bedrooms} resort={resort} property={property} />
                 </div>
 
                 <div className='location-container my-4'>
                     <h2 className='detail-title'>Location</h2>
-                    <span className='location-sub'>Brgy. San Pedro, Bustos, Bulacan</span>
+                    <span className='location-sub'>{location}</span>
 
-                    <div className='map-integration'>
-                        {/* MAP INTEG */}
+                    <div className='map-integration my-3 rounded-4 overflow-hidden' style={{ height: '350px' }}>
+                        <MapContainer center={[coordinates.lat, coordinates.lng]} zoom={15} style={{ width: '100%', height: '100%' }}>
+                            <TileLayer
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            />
+                            <Marker position={[coordinates.lat, coordinates.lng]} />
+                        </MapContainer>
                     </div>
 
                     <p className='location-address'>
-                        Gen. Alejo G. Santos Highway, Brgy. San Pedro, Bustos, Philippines
+                        {property?.address || location}
                     </p>
                 </div>
             </div>

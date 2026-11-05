@@ -6,31 +6,41 @@ export const HostBookingDetailsN = ({
     onConfirm,
     onReject,
 }) => {
-    const guest = booking?.guest || 'Guest'
-    const resort = booking?.resort || 'Property'
+    const guest = booking?.userEmail || booking?.guest || 'Guest'
+    const resort = booking?.propertyName || booking?.resort || 'Property'
     const reservationId = String(booking?.id || '').slice(-5).padStart(5, '0')
     const status = booking?.status || 'Pending'
     const startDate = formatHostDate(booking?.startDate || booking?.date)
-    const endDate = formatHostDate(booking?.endDate || booking?.date)
-    const total = Number(booking?.totalAmount || 0)
-    const paid = Number(booking?.amountPaid || 0)
-    const remaining = Number(booking?.remainingBalance || Math.max(total - paid, 0))
-    const money = (amount) => `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 0 })}`
+    const sessionType = booking?.session || 'Day Tour'
+    const guestsTotal = booking?.guestsCount || booking?.guests || '1'
+    
+    const total = Number(booking?.total || booking?.totalAmount || 0)
+    const isPartial = booking?.payOption === 'partial'
+    const paid = Number(isPartial ? total / 2 : total)
+    const remaining = Number(isPartial ? total / 2 : 0)
+    
+    const money = (amount) => `₱${Number(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 0 })}`
+
+    const cottagesList = Array.isArray(booking?.cottages) 
+        ? booking.cottages.map(c => c.name).join(', ') 
+        : (booking?.cottages || 'None')
 
     const reservationRows = [
         ['Reservation ID', `#${reservationId}`],
         ['Property Name', resort],
-        ['Booking Date', `${startDate} - ${endDate}`],
-        ['Duration', booking?.duration || '1'],
-        ['Number of Guests', booking?.guests || '0'],
+        ['Tour Session', sessionType],
+        ['Booking Date', startDate],
+        ['Bedrooms / Cottages', cottagesList],
+        ['Number of Guests', `${guestsTotal} Guests`],
     ]
 
     const paymentRows = [
+        ['Payment Option', booking?.payOption === 'partial' ? 'Part now, part later' : 'Full payment'],
         ['Total Amount', money(total)],
         ['Amount Paid', money(paid)],
         ['Remaining Balance', money(remaining)],
-        ['Payment Date', formatHostDate(booking?.paymentDate || booking?.date)],
-        ['Payment Method', booking?.paymentMethod || 'Online payment'],
+        ['Payment Date', formatHostDate(booking?.createdAt || booking?.date)],
+        ['Payment Method', String(booking?.method || 'card').toUpperCase()],
     ]
 
     const renderRows = (rows) => rows.map(([label, value]) => (
@@ -77,7 +87,7 @@ export const HostBookingDetailsN = ({
                             <dd className="col-8 text-md-end mb-1">{booking?.phone || '—'}</dd>
                             <dt className="col-4 fw-normal">Email</dt>
                             <dd className="col-8 text-md-end mb-0 text-break">
-                                {booking?.email || '—'}
+                                {booking?.userEmail || booking?.email || '—'}
                             </dd>
                         </dl>
                     </div>

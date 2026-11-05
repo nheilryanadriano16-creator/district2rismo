@@ -8,27 +8,58 @@ import { HostDashboardN } from '../components/HostSide/HostDashboardN.jsx'
 import { HostNotificationN } from '../components/HostSide/HostNotificationN.jsx'
 import { HostPropertiesN } from '../components/HostSide/HostPropertiesN.jsx'
 import { HostBookingsN } from '../components/HostSide/HostBookingsN.jsx'
+import { HostBookingDetailsN } from '../components/HostSide/HostBookingDetailsN.jsx' // Import your details component
 import { HostReviewsN } from '../components/HostSide/HostReviewsN.jsx'
 import { HostEarningSummary } from '../components/HostSide/HostEarningSummary.jsx'
 import { HostAddProperty } from './HostAddProperty.jsx'
+import { HostViewProperty } from '../components/HostSide/ViewPropertyDetails/HostViewProperty.jsx'
 import { HostSettingsN } from '../components/HostSide/HostSettingsN.jsx'
 import { HostHelp } from '../components/HostSide/HostHelp.jsx'
+import { deleteHostProperty } from '../utils/hostData'
 
 export function HostN({ initialSection = 'Dashboard', preview = false }) {
     const { state: routeState } = useLocation()
     const [selectedSection, setSelectedSection] = useState(routeState?.section || initialSection)
+    const [selectedProperty, setSelectedProperty] = useState(routeState?.property || null)
+    const [selectedBooking, setSelectedBooking] = useState(null) // Added booking state
     const navigate = useNavigate()
     const { logout } = useAuth()
 
     useEffect(() => {
         if (routeState?.section) setSelectedSection(routeState.section)
+        if (routeState?.property) setSelectedProperty(routeState.property)
     }, [routeState])
 
     const showBookingDetails = (booking) => {
-        navigate('/host/confirm-booking', { state: { booking } })
+        setSelectedBooking(booking)
+        setSelectedSection('Booking Details') // Switch view to booking details
     }
 
-    const isFullWidth = selectedSection === 'Add Property'
+    const handleViewProperty = (property) => {
+        setSelectedProperty(property)
+        setSelectedSection('View Property')
+    }
+
+    const handleReturnToProperties = () => {
+        setSelectedProperty(null)
+        setSelectedSection('Properties')
+    }
+
+    const handleDeleteProperty = async (propertyToDelete) => {
+        const target = propertyToDelete || selectedProperty
+        if (!target?.id) return
+        if (!window.confirm(`Are you sure you want to delete "${target.name}"? This action cannot be undone.`)) {
+            return
+        }
+        try {
+            await deleteHostProperty(target.id)
+            handleReturnToProperties()
+        } catch (error) {
+            console.error('Error deleting property:', error)
+        }
+    }
+
+    const isFullWidth = selectedSection === 'Add Property' || selectedSection === 'View Property' || selectedSection === 'Edit Property'
 
     return (
         <div className="account-pageN">
@@ -61,16 +92,50 @@ export function HostN({ initialSection = 'Dashboard', preview = false }) {
                         ) : selectedSection === 'Properties' ? (
                             <HostPropertiesN
                                 onAddProperty={() => setSelectedSection('Add Property')}
+                                onViewProperty={handleViewProperty}
+                                onDeleteProperty={handleDeleteProperty}
                             />
                         ) : selectedSection === 'Bookings' ? (
                             <HostBookingsN onViewBooking={showBookingDetails} />
+                        ) : selectedSection === 'Booking Details' ? (
+                            <HostBookingDetailsN
+                                booking={selectedBooking}
+                                onBack={() => setSelectedSection('Bookings')}
+                                onConfirm={() => {
+                                    // Handle confirmation logic here
+                                    alert('Booking confirmed!')
+                                    setSelectedSection('Bookings')
+                                }}
+                                onReject={() => {
+                                    // Handle rejection logic here
+                                    alert('Booking rejected.')
+                                    setSelectedSection('Bookings')
+                                }}
+                            />
                         ) : selectedSection === 'Reviews' ? (
                             <HostReviewsN />
                         ) : selectedSection === 'Earnings Summary' ? (
                             <HostEarningSummary />
                         ) : selectedSection === 'Add Property' ? (
                             <HostAddProperty
-                                onBack={() => setSelectedSection('Properties')}
+                                onBack={handleReturnToProperties}
+                                onExit={handleReturnToProperties}
+                            />
+                        ) : selectedSection === 'Edit Property' ? (
+                            <HostAddProperty
+                                mode="edit"
+                                property={selectedProperty}
+                                onBack={() => setSelectedSection('View Property')}
+                                onExit={handleReturnToProperties}
+                            />
+                        ) : selectedSection === 'View Property' ? (
+                            <HostViewProperty
+                                property={selectedProperty}
+                                onBack={handleReturnToProperties}
+                                onViewBookings={() => setSelectedSection('Bookings')}
+                                onViewReviews={() => setSelectedSection('Reviews')}
+                                onEdit={() => setSelectedSection('Edit Property')}
+                                onDelete={() => handleDeleteProperty(selectedProperty)}
                             />
                         ) : selectedSection === 'Settings' ? (
                             <HostSettingsN />
@@ -85,3 +150,5 @@ export function HostN({ initialSection = 'Dashboard', preview = false }) {
         </div>
     )
 }
+
+export default HostN

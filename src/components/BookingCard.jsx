@@ -1,138 +1,248 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-
-const guestTypes = [
-    { key: 'adult', label: 'Adult', price: 200 },
-    { key: 'kids', label: 'Kids (Below 4 Feet)', price: 180 },
-    { key: 'senior', label: 'Senior', price: 160 },
-]
-
-const sessions = ['Day Tour', 'Night Tour', 'Flexible']
+import { useAuth } from '../context/AuthContext'
 
 const peso = (n) =>
-    n.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })
+    (Number(n) || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })
 
-function MinusIcon() {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M4.5 7.5a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1z" />
-        </svg>
-    )
-}
-
-function PlusIcon() {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M8.5 4.5a.5.5 0 0 0-1 0v3h-3a.5.5 0 0 0 0 1h3v3a.5.5 0 0 0 1 0v-3h3a.5.5 0 0 0 0-1h-3z" />
-        </svg>
-    )
-}
-
-function BookingCard({ cottages = [], resort }) {
+function BookingCard({ cottages = [], resort, property }) {
     const navigate = useNavigate()
+    const { currentUser } = useAuth()
     const today = new Date().toISOString().split('T')[0]
 
-    const [guests, setGuests] = useState({ adult: 6, kids: 3, senior: 0 })
-    const [session, setSession] = useState(sessions[0])
-    const [date, setDate] = useState(today)
-    const [cottageId, setCottageId] = useState(cottages[0]?.id ?? '')
+    const tours = property?.tourSettings || {}
+    const defaultBasePrice = Number(property?.price || property?.rate || 15000)
 
-    const changeGuest = (key, delta) => {
-        setGuests(prev => ({ ...prev, [key]: Math.max(0, prev[key] + delta) }))
+    const availableTours = []
+    if (tours.day?.enabled) {
+        availableTours.push({
+            key: 'day',
+            label: 'Day Tour',
+            price: Number(tours.day.rate || tours.day.price || defaultBasePrice),
+            time: `${tours.day.checkIn || '08:00 AM'} – ${tours.day.checkOut || '05:00 PM'}`
+        })
+    }
+    if (tours.night?.enabled) {
+        availableTours.push({
+            key: 'night',
+            label: 'Night Tour',
+            price: Number(tours.night.rate || tours.night.price || defaultBasePrice),
+            time: `${tours.night.checkIn || '05:00 PM'} – ${tours.night.checkOut || '08:00 AM'}`
+        })
+    }
+    if (tours.flexible?.enabled) {
+        availableTours.push({
+            key: 'flexible',
+            label: 'Flexible',
+            price: Number(tours.flexible.rate || tours.flexible.price || defaultBasePrice),
+            time: 'Flexible schedule'
+        })
     }
 
-    const guestsTotal = guestTypes.reduce((sum, g) => sum + guests[g.key] * g.price, 0)
-    const cottage = cottages.find(c => c.id === Number(cottageId))
-    const cottagePrice = typeof cottage?.price === 'number' ? cottage.price : 0
-    const total = guestsTotal + cottagePrice
+    const defaultTours = availableTours.length > 0 ? availableTours : [
+        { key: 'day', label: 'Day Tour', price: defaultBasePrice, time: '08:00 AM – 05:00 PM' }
+    ]
 
-    const summaryText =
-        `${guests.adult} Adult${guests.adult === 1 ? '' : 's'}, ` +
-        `${guests.kids} Kid${guests.kids === 1 ? '' : 's'}, ` +
-        `${guests.senior} Senior`
+    const [selectedTourKey, setSelectedTourKey] = useState(defaultTours[0].key)
+    const [date, setDate] = useState(today)
+    const [guestsCount, setGuestsCount] = useState(property?.capacity || 10)
+    const [selectedCottageIds, setSelectedCottageIds] = useState([])
+    const [dropdownOpen, setDropdownOpen] = useState(false)
+    const dropdownRef = useRef(null)
+
+    const currentTour = defaultTours.find(t => t.key === selectedTourKey) || defaultTours[0]
+    const tourPrice = Number(currentTour.price) || 0
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setDropdownOpen(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
+
+    const selectedCottages = cottages.filter(
+        (c) => selectedCottageIds.includes(String(c.id)) || selectedCottageIds.includes(c.name)
+    )
+
+    const cottagesPrice = selectedCottages.reduce(
+        (sum, c) => sum + (Number(c.price || c.rate) || 0),
+        0
+    )
+
+    const total = tourPrice + cottagesPrice
+
+    const handleToggleCottage = (cottageKey) => {
+        setSelectedCottageIds(current =>
+            current.includes(cottageKey)
+                ? current.filter(id => id !== cottageKey)
+                : [...current, cottageKey]
+        )
+    }
 
     const handleBook = () => {
+        if (!currentUser) {
+            navigate('/login', { state: { returnUrl: window.location.pathname } })
+            return
+        }
+
         navigate('/pay', {
             state: {
                 booking: {
-                    guests,
-                    session,
                     date,
-                    cottage: cottage ? { name: cottage.name, price: cottage.price } : null,
+                    session: currentTour.label,
+                    guestsCount,
+                    cottages: selectedCottages.map(c => ({ name: c.name, price: Number(c.price || c.rate) || 0 })),
+                    tourPrice,
+                    cottagesPrice,
                     total,
                     resort,
+                    property,
                 },
             },
         })
     }
 
+    const getDropdownLabel = () => {
+        if (selectedCottages.length === 0) return 'Select Bedroom / Cottage'
+        if (selectedCottages.length === 1) return selectedCottages[0].name
+        return `${selectedCottages.length} Bedrooms Selected`
+    }
+
     return (
-        <div className='booking-card'>
-            <h4 className='booking-heading'>Guests</h4>
-            <div className='guest-list'>
-                {guestTypes.map(g => (
-                    <div className='guest-row' key={g.key}>
-                        <span>{g.label}, ({peso(g.price).replace('.00', '')})</span>
-                        <div className='counter'>
-                            <button
-                                type='button'
-                                className='counter-btn'
-                                onClick={() => changeGuest(g.key, -1)}
-                                disabled={guests[g.key] === 0}
-                                aria-label={`Remove one ${g.label}`}
-                            >
-                                <MinusIcon />
-                            </button>
-                            <span className='counter-value'>{guests[g.key]}</span>
-                            <button
-                                type='button'
-                                className='counter-btn'
-                                onClick={() => changeGuest(g.key, 1)}
-                                aria-label={`Add one ${g.label}`}
-                            >
-                                <PlusIcon />
-                            </button>
-                        </div>
-                    </div>
-                ))}
+        <div className='booking-card p-3 rounded-4'>
+            <div className='mb-3'>
+                <span className='fs-4 fw-bold text-white'>{peso(tourPrice).replace('.00', '')}</span>
+                <span className='text-white small'> / {currentTour.label.toLowerCase()}</span>
             </div>
 
-            <h4 className='booking-heading'>Session</h4>
-            <select
-                className='booking-input'
-                value={session}
-                onChange={e => setSession(e.target.value)}
-            >
-                {sessions.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                ))}
-            </select>
+            <div className='mb-3'>
+                <label className='form-label small mb-1 text-white'>Select Tour Type &amp; Schedule</label>
+                <div className='d-flex flex-column gap-2'>
+                    {defaultTours.map(tour => {
+                        const isSelected = selectedTourKey === tour.key
+                        return (
+                            <div 
+                                key={tour.key}
+                                className='p-2 rounded-3 d-flex justify-content-between align-items-center'
+                                onClick={() => setSelectedTourKey(tour.key)}
+                                style={{ 
+                                    cursor: 'pointer',
+                                    backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+                                    border: isSelected ? '2px solid #ffc107' : '1px solid rgba(255, 255, 255, 0.2)'
+                                }}
+                            >
+                                <div>
+                                    <div className={`fw-bold small ${isSelected ? 'text-white' : 'text-white-50'}`}>{tour.label}</div>
+                                    <div className='text-white-50' style={{ fontSize: '0.8rem' }}>{tour.time}</div>
+                                </div>
+                                <div className='fw-bold text-warning small'>{peso(tour.price).replace('.00', '')}</div>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
 
-            <h4 className='booking-heading'>Date</h4>
-            <input
-                type='date'
-                className='booking-input'
-                value={date}
-                min={today}
-                onChange={e => setDate(e.target.value)}
-            />
+            <div className='mb-3'>
+                <label className='form-label small mb-1 text-white'>Date</label>
+                <input
+                    type='date'
+                    className='booking-input form-control text-white bg-transparent border-secondary'
+                    value={date}
+                    min={today}
+                    onChange={e => setDate(e.target.value)}
+                    style={{ colorScheme: 'dark' }}
+                />
+            </div>
 
-            <hr className='summary-divider' />
+            <div className='mb-3'>
+                <label className='form-label small mb-1 text-white'>Guests</label>
+                <input
+                    type='number'
+                    className='booking-input form-control text-white bg-transparent border-secondary'
+                    min={1}
+                    max={property?.capacity || 100}
+                    value={guestsCount}
+                    onChange={e => setGuestsCount(Math.max(1, parseInt(e.target.value) || 1))}
+                />
+            </div>
 
-            <div className='total-row'>
-                <span>TOTAL</span>
-                {/* LEGIT PRICE NG RESORT */}
-                <span className='total-amount'>15,000.00</span>
+            {cottages.length > 0 && (
+                <div className='mb-3 position-relative' ref={dropdownRef}>
+                    <label className='form-label small mb-1 text-white'>Select Bedroom / Cottage</label>
+                    <button
+                        type='button'
+                        className='booking-input form-select text-white bg-transparent border-secondary text-start d-flex justify-content-between align-items-center'
+                        onClick={() => setDropdownOpen(!dropdownOpen)}
+                    >
+                        <span className='text-truncate me-2'>{getDropdownLabel()}</span>
+                    </button>
+
+                    {dropdownOpen && (
+                        <div 
+                            className='position-absolute start-0 end-0 mt-1 p-2 rounded-3 shadow-lg bg-dark border border-secondary z-3'
+                            style={{ maxHeight: '200px', overflowY: 'auto' }}
+                        >
+                            {cottages.map((c) => {
+                                const val = String(c.id ?? c.name)
+                                const p = Number(c.price || c.rate) || 0
+                                const isChecked = selectedCottageIds.includes(val)
+                                return (
+                                    <div 
+                                        key={val} 
+                                        className='d-flex justify-content-between align-items-center p-2 rounded cursor-pointer mb-1'
+                                        onClick={() => handleToggleCottage(val)}
+                                        style={{ 
+                                            backgroundColor: isChecked ? 'rgba(255, 193, 7, 0.15)' : 'transparent',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <div className='d-flex align-items-center gap-2'>
+                                            <i className={`bi ${isChecked ? 'bi-check-square-fill text-warning' : 'bi-square text-secondary'}`} />
+                                            <span className='text-white small'>{c.name}</span>
+                                        </div>
+                                        <span className='small text-warning fw-bold'>
+                                            {p > 0 ? `+${peso(p).replace('.00', '')}` : 'Free'}
+                                        </span>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            <hr className='summary-divider my-3 border-secondary' />
+
+            {selectedCottages.length > 0 && (
+                <div className='mb-2'>
+                    {selectedCottages.map(c => {
+                        const price = Number(c.price || c.rate) || 0
+                        return (
+                            <div key={c.id || c.name} className='d-flex justify-content-between align-items-center text-white-50 small mb-1'>
+                                <span>{c.name}</span>
+                                <span>+{peso(price).replace('.00', '')}</span>
+                            </div>
+                        )
+                    })}
+                </div>
+            )}
+
+            <div className='total-row d-flex justify-content-between align-items-center mb-3'>
+                <span className='fw-bold text-white'>TOTAL</span>
+                <span className='total-amount fs-5 fw-bold text-warning'>{peso(total).replace('.00', '')}</span>
             </div>
 
             <button
                 type='button'
-                className='book-btn'
+                className='book-btn btn btn-warning w-100 rounded-pill py-2 fw-bold text-dark'
                 onClick={handleBook}
             >
                 Book Now
             </button>
-
         </div>
     )
 }
