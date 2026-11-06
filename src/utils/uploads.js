@@ -1,9 +1,10 @@
-import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
+import { getDownloadURL, ref, uploadBytes, uploadBytesResumable } from 'firebase/storage'
 import { auth, storage } from '../firebase'
 
 const API_URL = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:4242'
 const IMAGE_COMPRESSION_THRESHOLD = 2 * 1024 * 1024
 const MAX_IMAGE_DIMENSION = 1920
+const RESUMABLE_UPLOAD_THRESHOLD = 256 * 1024
 const UPLOAD_STALL_TIMEOUT = 90 * 1000
 
 export function resolveUploadUrl(path) {
@@ -63,6 +64,16 @@ export async function uploadFile(file, category = 'property-media', onProgress) 
     const safeName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const filePath = `uploads/${category}/${user.uid}/${Date.now()}-${safeName}`
     const storageRef = ref(storage, filePath)
+
+    if (uploadFile.size <= RESUMABLE_UPLOAD_THRESHOLD) {
+        onProgress?.({ phase: 'saving', progress: 0 })
+        await uploadBytes(storageRef, uploadFile, {
+            contentType: uploadFile.type || 'application/octet-stream',
+        })
+        onProgress?.({ phase: 'uploading', progress: 100 })
+        return getDownloadURL(storageRef)
+    }
+
     onProgress?.({ phase: 'uploading', progress: 0 })
     const uploadTask = uploadBytesResumable(storageRef, uploadFile, {
         contentType: uploadFile.type || 'application/octet-stream',

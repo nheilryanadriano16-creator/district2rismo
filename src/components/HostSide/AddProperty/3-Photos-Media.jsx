@@ -233,6 +233,7 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
                                     <span className="text-warning">{photo.file.name}</span>
                                     {' '}({formatFileSize(photo.file.size)})
                                     {photo.uploadStatus === 'uploading' && photo.uploadPhase === 'preparing' && ' - Preparing image...'}
+                                    {photo.uploadStatus === 'uploading' && photo.uploadPhase === 'saving' && ' - Saving...'}
                                     {photo.uploadStatus === 'uploading' && photo.uploadPhase === 'uploading' && ` - Uploading ${photo.uploadProgress}%`}
                                     {photo.uploadStatus === 'failed' && ' - Upload failed; remove and try again.'}
                                 </span>
