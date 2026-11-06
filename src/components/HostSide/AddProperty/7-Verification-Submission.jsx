@@ -59,7 +59,7 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
         const objectUrl = URL.createObjectURL(file)
         let serverFilePath
         try {
-            serverFilePath = await uploadFile(file)
+            serverFilePath = await uploadFile(file, 'verification')
         } catch (error) {
             URL.revokeObjectURL(objectUrl)
             setUploadError(error.message || 'Could not upload verification file.')
