@@ -2,8 +2,9 @@ import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
 import { auth, storage } from '../firebase'
 
 const API_URL = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:4242'
-const IMAGE_COMPRESSION_THRESHOLD = 1024 * 1024
+const IMAGE_COMPRESSION_THRESHOLD = 2 * 1024 * 1024
 const MAX_IMAGE_DIMENSION = 1920
+const UPLOAD_STALL_TIMEOUT = 90 * 1000
 
 export function resolveUploadUrl(path) {
     if (typeof path !== 'string' || !path) return ''
@@ -57,21 +58,53 @@ export async function uploadFile(file, category = 'property-media', onProgress) 
         throw new Error('Sign in before uploading a file.')
     }
 
+    onProgress?.({ phase: 'preparing', progress: 0 })
     const uploadFile = category === 'property-media' ? await optimizePropertyImage(file) : file
     const safeName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const filePath = `uploads/${category}/${user.uid}/${Date.now()}-${safeName}`
     const storageRef = ref(storage, filePath)
+    onProgress?.({ phase: 'uploading', progress: 0 })
     const uploadTask = uploadBytesResumable(storageRef, uploadFile, {
         contentType: uploadFile.type || 'application/octet-stream',
     })
 
     await new Promise((resolve, reject) => {
-        uploadTask.on('state_changed', (snapshot) => {
+        let settled = false
+        let timeoutId
+        let unsubscribe
+        let lastTransferred = 0
+
+        const finish = (callback, value) => {
+            if (settled) return
+            settled = true
+            clearTimeout(timeoutId)
+            unsubscribe?.()
+            callback(value)
+        }
+
+        const resetStallTimeout = () => {
+            clearTimeout(timeoutId)
+            timeoutId = setTimeout(() => {
+                if (settled) return
+                finish(
+                    reject,
+                    new Error('Upload stopped making progress. Check your internet connection and try again.')
+                )
+                uploadTask.cancel()
+            }, UPLOAD_STALL_TIMEOUT)
+        }
+
+        unsubscribe = uploadTask.on('state_changed', (snapshot) => {
+            if (snapshot.bytesTransferred > lastTransferred) {
+                lastTransferred = snapshot.bytesTransferred
+                resetStallTimeout()
+            }
             const progress = snapshot.totalBytes
                 ? Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
                 : 0
-            onProgress?.(progress)
-        }, reject, resolve)
+            onProgress?.({ phase: 'uploading', progress })
+        }, (error) => finish(reject, error), () => finish(resolve))
+        resetStallTimeout()
     })
 
     return getDownloadURL(storageRef)

@@ -94,12 +94,12 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
         setIsUploading(true)
 
         const uploadResults = await Promise.allSettled(
-            selectedFiles.map((photo) => uploadFile(photo.file, 'property-media', (uploadProgress) => {
+            selectedFiles.map((photo) => uploadFile(photo.file, 'property-media', ({ phase, progress }) => {
                 setPhotos((current) => ({
                     ...current,
                     [group.id]: (current[group.id] || []).map((item) => (
                         item.id === photo.id
-                            ? { ...item, uploadPhase: 'uploading', uploadProgress }
+                            ? { ...item, uploadPhase: phase, uploadProgress: progress }
                             : item
                     )),
                 }))
