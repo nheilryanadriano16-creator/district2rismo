@@ -58,7 +58,7 @@ function NavBar() {
         <div>
             <header className={`site-header container-fluid py-4 d-flex justify-content-between${isScrolled ? ' is-scrolled' : ''}`}>
 
-                <Link to='/' className='logo-link d-inline-flex' aria-label='Go to home page'>
+                <Link to='/' state={{ allowHomePage: true }} className='logo-link d-inline-flex' aria-label='Go to home page'>
                     <img className='img-fluid logo' src={Logo2Rismo} alt='District 2rismo home' />
                 </Link>
 
@@ -153,7 +153,7 @@ function NavBar() {
                                 )}
                                 <div className="d-flex gap-2">
                                     <Link
-                                        to={userRole === 'host' ? '/host/profile' : userRole === 'admin' ? '/admin/profile' : '/account'}
+                                        to="/account"
                                         className="btn nav-profile-secondaryN w-50 fw-bold"
                                         onClick={() => setShowUserModal(false)}
                                     >

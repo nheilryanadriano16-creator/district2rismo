@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Logo2Rismo from '../images/2Rismo Logo.png'
 import { LoginN } from './auth/LoginN.jsx'
 import Modal from 'react-bootstrap/Modal'
@@ -16,7 +16,6 @@ function NavBar() {
     const [isLogoVisible, setIsLogoVisible] = useState(true)
 
     const { currentUser, userData, userRole, logout } = useAuth()
-    const location = useLocation()
 
     const profileInitial = [
         userData?.firstName,
@@ -59,7 +58,7 @@ function NavBar() {
         <div>
             <header className={`site-header container-fluid py-4 d-flex justify-content-between${isScrolled ? ' is-scrolled' : ''}`}>
 
-                <Link to='/' className='logo-link d-inline-flex' aria-label='Go to home page'>
+                <Link to='/' state={{ allowHomePage: true }} className='logo-link d-inline-flex' aria-label='Go to home page'>
                     <img className='img-fluid logo' src={Logo2Rismo} alt='District 2rismo home' />
                 </Link>
 
@@ -90,32 +89,30 @@ function NavBar() {
                             </svg>
                         )}
                     </button>
-                    {location.pathname !== '/account' && (
-                        <BurgerOptionN
-                            darkMode={darkMode}
-                            onToggleDarkMode={setDarkMode}
-                            onNotifications={() => {
-                                if (currentUser && userRole === 'host') {
-                                    navigate('/host', { state: { section: 'Notifications' } })
-                                } else if (currentUser && userRole === 'customer') {
-                                    navigate('/account', { state: { section: 'Notifications' } })
-                                } else {
-                                    setShowLogin(true)
-                                }
-                            }}
-                            onHelpCenter={() => {
-                                if (currentUser && userRole === 'host') {
-                                    navigate('/host', { state: { section: 'Help' } })
-                                } else if (currentUser && userRole === 'customer') {
-                                    navigate('/account', { state: { section: 'Help' } })
-                                } else {
-                                    setShowLogin(true)
-                                }
-                            }}
-                            onListProperty={() => userRole === 'host' ? navigate('/host') : setShowHostPrompt(true)}
-                            onLogin={() => setShowLogin(true)}
-                        />
-                    )}
+                    <BurgerOptionN
+                        darkMode={darkMode}
+                        onToggleDarkMode={setDarkMode}
+                        onNotifications={() => {
+                            if (currentUser && userRole === 'host') {
+                                navigate('/host', { state: { section: 'Notifications' } })
+                            } else if (currentUser && userRole === 'customer') {
+                                navigate('/account', { state: { section: 'Notifications' } })
+                            } else {
+                                setShowLogin(true)
+                            }
+                        }}
+                        onHelpCenter={() => {
+                            if (currentUser && userRole === 'host') {
+                                navigate('/host', { state: { section: 'Help' } })
+                            } else if (currentUser && userRole === 'customer') {
+                                navigate('/account', { state: { section: 'Help' } })
+                            } else {
+                                setShowLogin(true)
+                            }
+                        }}
+                        onListProperty={() => userRole === 'host' ? navigate('/host') : setShowHostPrompt(true)}
+                        onLogin={() => setShowLogin(true)}
+                    />
                 </div>
             </header>
 
@@ -154,7 +151,14 @@ function NavBar() {
                                 {userRole === 'admin' && (
                                     <Link to="/admin" className="btn nav-profile-primaryN w-100 fw-bold" onClick={() => setShowUserModal(false)}>Admin Dashboard</Link>
                                 )}
-                                <div className="d-flex justify-content-center">
+                                <div className="d-flex gap-2">
+                                    <Link
+                                        to="/account"
+                                        className="btn nav-profile-secondaryN w-50 fw-bold"
+                                        onClick={() => setShowUserModal(false)}
+                                    >
+                                        Manage Profile
+                                    </Link>
                                     <button className="btn nav-profile-logoutN w-50" onClick={() => { logout(); setShowUserModal(false); }}>Log Out</button>
                                 </div>
                             </div>
