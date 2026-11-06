@@ -7,7 +7,7 @@ import CottageCard from '../components/StayCard.jsx'
 import Footer from '../components/Footer.jsx'
 import BookingCard from '../components/BookingCard.jsx'
 import resortImage from '../images/Bustos Hero.png'
-import { MapContainer, TileLayer, Marker } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
@@ -20,6 +20,16 @@ L.Icon.Default.mergeOptions({
     iconRetinaUrl: markerIcon2x,
     shadowUrl: markerShadow,
 })
+
+function MapUpdater({ center }) {
+    const map = useMap()
+    useEffect(() => {
+        if (center && center[0] && center[1]) {
+            map.setView(center, map.getZoom())
+        }
+    }, [center, map])
+    return null
+}
 
 function Star({ size = 16, filled = true }) {
     return (
@@ -160,7 +170,22 @@ function PlaceDetails() {
         price: property?.price || property?.rate || tours?.day?.price || 15000,
     }
 
-    const coordinates = property?.coordinates || { lat: 14.9547, lng: 120.9575 }
+    // Robust coordinate extraction across all potential schema keys
+    const lat = Number(
+        property?.coordinates?.lat || 
+        property?.latitude || 
+        property?.lat || 
+        property?.coordinates?.[0] || 
+        14.9547
+    )
+    const lng = Number(
+        property?.coordinates?.lng || 
+        property?.longitude || 
+        property?.lng || 
+        property?.coordinates?.[1] || 
+        120.9575
+    )
+    const centerCoordinates = [lat, lng]
 
     return (
         <>
@@ -381,12 +406,13 @@ function PlaceDetails() {
                     <span className='location-sub'>{location}</span>
 
                     <div className='map-integration my-3 rounded-4 overflow-hidden' style={{ height: '350px' }}>
-                        <MapContainer center={[coordinates.lat, coordinates.lng]} zoom={15} style={{ width: '100%', height: '100%' }}>
+                        <MapContainer center={centerCoordinates} zoom={15} style={{ width: '100%', height: '100%' }}>
+                            <MapUpdater center={centerCoordinates} />
                             <TileLayer
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                             />
-                            <Marker position={[coordinates.lat, coordinates.lng]} />
+                            <Marker position={centerCoordinates} />
                         </MapContainer>
                     </div>
 

@@ -6,6 +6,16 @@ const Stripe = require('stripe')
 const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
+const admin = require('firebase-admin')
+
+if (!admin.apps.length) {
+    try {
+        admin.initializeApp({
+            credential: admin.credential.applicationDefault()
+        })
+    } catch (e) {
+    }
+}
 
 const app = express()
 const PORT = process.env.PORT || 4242
@@ -58,6 +68,34 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     } catch (error) {
         console.error('File upload error:', error.message)
         return res.status(500).json({ error: 'Could not upload file.' })
+    }
+})
+
+app.put('/api/properties/:id', async (req, res) => {
+    try {
+        const { id } = req.params
+        const updatedData = req.body
+
+        if (!id) {
+            return res.status(400).json({ error: 'Property ID is required.' })
+        }
+
+        if (admin.apps.length) {
+            const db = admin.firestore()
+            const propertyRef = db.collection('properties').doc(id)
+            
+            await propertyRef.set({
+                ...updatedData,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true })
+
+            return res.json({ message: 'Property updated successfully on server.', id })
+        }
+
+        return res.json({ message: 'Property update request received.', id, updatedData })
+    } catch (error) {
+        console.error('Property update server error:', error.message)
+        return res.status(500).json({ error: 'Could not update property.' })
     }
 })
 
