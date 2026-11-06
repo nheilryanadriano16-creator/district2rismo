@@ -21,8 +21,8 @@ if (!getApps().length) {
 
 const app = express()
 const PORT = process.env.PORT || 4242
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
-const frontendUrl = new URL(FRONTEND_URL)
+const frontendUrl = new URL(process.env.FRONTEND_URL || 'http://localhost:5173')
+const FRONTEND_URL = frontendUrl.origin
 const allowedFrontendOrigins = new Set([frontendUrl.origin])
 
 if (frontendUrl.hostname === 'localhost' || frontendUrl.hostname === '127.0.0.1') {
