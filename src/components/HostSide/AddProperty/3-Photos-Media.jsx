@@ -21,6 +21,7 @@ const getSavedPhotos = (property) => {
                     file: { name: photo.name, size: photo.size },
                     preview: resolveUploadUrl(photo.preview || photo.localPath),
                     localPath: resolveUploadUrl(photo.localPath || photo.preview),
+                    uploadStatus: 'uploaded',
                 })),
             ])
         )
@@ -34,6 +35,7 @@ const getSavedPhotos = (property) => {
                     file: { name: 'Cover photo', size: 0 },
                     preview: resolveUploadUrl(property.image),
                     localPath: resolveUploadUrl(property.image),
+                    uploadStatus: 'uploaded',
                 }],
             }
             : {}),
@@ -44,6 +46,7 @@ const getSavedPhotos = (property) => {
                     file: { name: `Gallery photo ${index + 1}`, size: 0 },
                     preview: resolveUploadUrl(preview),
                     localPath: resolveUploadUrl(preview),
+                    uploadStatus: 'uploaded',
                 })),
             }
             : {}),
@@ -53,6 +56,7 @@ const getSavedPhotos = (property) => {
 export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange, editNavigation }) => {
     const [photos, setPhotos] = useState(() => getSavedPhotos(property))
     const [validationError, setValidationError] = useState('')
+    const [isUploading, setIsUploading] = useState(false)
     const objectUrls = useRef(new Set())
 
     useEffect(() => {
@@ -64,51 +68,81 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
 
     const addPhotos = async (group, fileList) => {
         const filesArray = Array.from(fileList)
-        const selectedFiles = []
+        if (filesArray.length === 0 || isUploading) return
 
-        try {
-            for (const file of filesArray) {
-                const localPath = await uploadFile(file)
-                const objectUrl = URL.createObjectURL(file)
-                selectedFiles.push({
-                    id: `${file.name}-${file.lastModified}-${Math.random()}`,
-                    file,
-                    preview: objectUrl,
-                    localPath,
-                })
+        const selectedFiles = filesArray.map((file) => {
+            const preview = URL.createObjectURL(file)
+            objectUrls.current.add(preview)
+            return {
+                id: `${file.name}-${file.lastModified}-${Math.random()}`,
+                file,
+                preview,
+                localPath: '',
+                uploadStatus: 'uploading',
             }
-        } catch (error) {
-            selectedFiles.forEach((photo) => URL.revokeObjectURL(photo.preview))
-            setValidationError(error.message || 'Could not upload property photos.')
-            return
-        }
-
-        selectedFiles.forEach((photo) => objectUrls.current.add(photo.preview))
-
+        })
+        const previousGroupPhotos = photos[group.id] || []
         const updatedPhotos = {
             ...photos,
-            [group.id]: group.multiple
-                ? [...(photos[group.id] || []), ...selectedFiles]
-                : selectedFiles.slice(0, 1),
+            [group.id]: [...previousGroupPhotos, ...selectedFiles],
         }
-        if (!group.multiple) {
-            (photos[group.id] || []).forEach((photo) => {
+
+        setPhotos(updatedPhotos)
+        setValidationError('')
+        setIsUploading(true)
+
+        const uploadResults = await Promise.allSettled(
+            selectedFiles.map((photo) => uploadFile(photo.file))
+        )
+        const photosWithUploadResults = updatedPhotos[group.id].map((photo) => {
+            const selectedIndex = selectedFiles.findIndex((selected) => selected.id === photo.id)
+            if (selectedIndex < 0) return photo
+
+            const result = uploadResults[selectedIndex]
+            return result.status === 'fulfilled'
+                ? { ...photo, localPath: result.value, uploadStatus: 'uploaded' }
+                : { ...photo, uploadStatus: 'failed' }
+        })
+        const hasSuccessfulUpload = selectedFiles.some((photo, index) => (
+            uploadResults[index].status === 'fulfilled'
+        ))
+        const uploadedPhotos = group.multiple
+            ? photosWithUploadResults
+            : hasSuccessfulUpload
+                ? photosWithUploadResults.filter((photo) => (
+                    selectedFiles.some((selected) => selected.id === photo.id)
+                    && photo.uploadStatus === 'uploaded'
+                ))
+                : photosWithUploadResults
+
+        if (!group.multiple && hasSuccessfulUpload) {
+            previousGroupPhotos.forEach((photo) => {
                 if (photo.preview.startsWith('blob:')) {
                     URL.revokeObjectURL(photo.preview)
                     objectUrls.current.delete(photo.preview)
                 }
             })
         }
-        setPhotos(updatedPhotos)
-        if (group.id === 'cover') setValidationError('')
 
-        const savedPhotos = updatedPhotos[group.id].map((photo) => ({
-            id: photo.id,
-            name: photo.file.name,
-            size: photo.file.size,
-            preview: photo.localPath || photo.preview,
-            localPath: photo.localPath || photo.preview,
-        }))
+        const completedPhotos = { ...updatedPhotos, [group.id]: uploadedPhotos }
+        setPhotos(completedPhotos)
+        setIsUploading(false)
+
+        const failedIndex = uploadResults.findIndex((result) => result.status === 'rejected')
+        if (failedIndex >= 0) {
+            const error = uploadResults[failedIndex].reason
+            setValidationError(error?.message || 'Could not upload property photos.')
+        }
+
+        const savedPhotos = uploadedPhotos
+            .filter((photo) => photo.uploadStatus === 'uploaded')
+            .map((photo) => ({
+                id: photo.id,
+                name: photo.file.name,
+                size: photo.file.size,
+                preview: photo.localPath,
+                localPath: photo.localPath,
+            }))
         const changes = { mediaPhotos: { [group.id]: savedPhotos } }
         if (group.id === 'cover') changes.image = savedPhotos[0]?.preview || ''
         if (group.id === 'gallery') changes.galleryImages = savedPhotos.map((photo) => photo.preview)
@@ -129,13 +163,15 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
             setValidationError('A cover photo is required. Upload one before continuing.')
         }
 
-        const savedPhotos = remainingPhotos.map(({ id, file, preview, localPath }) => ({
-            id,
-            name: file.name,
-            size: file.size,
-            preview: localPath || preview,
-            localPath: localPath || preview,
-        }))
+        const savedPhotos = remainingPhotos
+            .filter((item) => item.uploadStatus === 'uploaded')
+            .map(({ id, file, preview, localPath }) => ({
+                id,
+                name: file.name,
+                size: file.size,
+                preview: localPath || preview,
+                localPath: localPath || preview,
+            }))
         const changes = { mediaPhotos: { [groupId]: savedPhotos } }
         if (groupId === 'cover') changes.image = savedPhotos[0]?.preview || ''
         if (groupId === 'gallery') changes.galleryImages = savedPhotos.map((item) => item.preview)
@@ -162,6 +198,7 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
                     type="file"
                     accept="image/*"
                     multiple={group.multiple}
+                    disabled={isUploading}
                     onChange={(event) => {
                         addPhotos(group, event.target.files)
                         event.target.value = ''
@@ -184,11 +221,14 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
                                 <span className="small text-truncate flex-grow-1">
                                     <span className="text-warning">{photo.file.name}</span>
                                     {' '}({formatFileSize(photo.file.size)})
+                                    {photo.uploadStatus === 'uploading' && ' - Uploading...'}
+                                    {photo.uploadStatus === 'failed' && ' - Upload failed; remove and try again.'}
                                 </span>
                                 <button
                                     type="button"
                                     className="btn btn-sm host-photo-removeN p-0"
                                     aria-label={`Remove ${photo.file.name}`}
+                                    disabled={isUploading}
                                     onClick={() => removePhoto(group.id, photo.id)}
                                 >
                                     <i className="bi bi-x-lg" aria-hidden="true" />
@@ -247,7 +287,15 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
                     type="button"
                     className="btn btn-warning rounded-pill px-5 py-2 host-add-property-nextN"
                     onClick={() => {
-                        if (!photos.cover?.length) {
+                        if (isUploading || Object.values(photos).flat().some((photo) => photo.uploadStatus === 'uploading')) {
+                            setValidationError('Wait for the selected photos to finish uploading before continuing.')
+                            return
+                        }
+                        if (Object.values(photos).flat().some((photo) => photo.uploadStatus === 'failed')) {
+                            setValidationError('Remove or re-upload failed photos before continuing.')
+                            return
+                        }
+                        if (!photos.cover?.some((photo) => photo.uploadStatus === 'uploaded')) {
                             setValidationError('A cover photo is required. Upload one before continuing.')
                             return
                         }
