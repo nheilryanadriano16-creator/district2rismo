@@ -53,6 +53,60 @@ async function optimizePropertyImage(file) {
     }
 }
 
+async function uploadPropertyImage(file, user, onProgress) {
+    const token = await user.getIdToken()
+    const formData = new FormData()
+    formData.append('file', file)
+
+    return new Promise((resolve, reject) => {
+        const request = new XMLHttpRequest()
+        request.open('POST', new URL('/api/upload', API_URL))
+        request.setRequestHeader('Authorization', `Bearer ${token}`)
+        request.timeout = UPLOAD_STALL_TIMEOUT
+        onProgress?.({ phase: 'uploading', progress: 0 })
+
+        request.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+                onProgress?.({
+                    phase: 'uploading',
+                    progress: Math.round((event.loaded / event.total) * 100),
+                })
+            }
+        })
+        request.addEventListener('load', () => {
+            let response
+            try {
+                response = JSON.parse(request.responseText)
+            } catch {
+                reject(new Error('The upload server returned an invalid response.'))
+                return
+            }
+
+            if (request.status < 200 || request.status >= 300) {
+                reject(new Error(response.error || 'Could not upload property photo.'))
+                return
+            }
+            if (typeof response.filePath !== 'string') {
+                reject(new Error('The upload server did not return the photo URL.'))
+                return
+            }
+
+            onProgress?.({ phase: 'uploading', progress: 100 })
+            resolve(new URL(response.filePath, API_URL).toString())
+        })
+        request.addEventListener('error', () => {
+            reject(new Error('Could not reach the photo upload server. Check your connection and try again.'))
+        })
+        request.addEventListener('timeout', () => {
+            reject(new Error('The photo upload timed out. Please try again.'))
+        })
+        request.addEventListener('abort', () => {
+            reject(new Error('The photo upload was cancelled.'))
+        })
+        request.send(formData)
+    })
+}
+
 export async function uploadFile(file, category = 'property-media', onProgress) {
     const user = auth.currentUser
     if (!user) {
@@ -61,6 +115,10 @@ export async function uploadFile(file, category = 'property-media', onProgress) 
 
     onProgress?.({ phase: 'preparing', progress: 0 })
     const uploadFile = category === 'property-media' ? await optimizePropertyImage(file) : file
+    if (category === 'property-media') {
+        return uploadPropertyImage(uploadFile, user, onProgress)
+    }
+
     const safeName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const filePath = `uploads/${category}/${user.uid}/${Date.now()}-${safeName}`
     const storageRef = ref(storage, filePath)

@@ -5,6 +5,7 @@ const cors = require('cors')
 const Stripe = require('stripe')
 const multer = require('multer')
 const { applicationDefault, getApps, initializeApp } = require('firebase-admin/app')
+const { getAuth } = require('firebase-admin/auth')
 const { FieldValue, getFirestore } = require('firebase-admin/firestore')
 const path = require('path')
 const fs = require('fs')
@@ -43,10 +44,18 @@ app.use(cors({
 }))
 app.use(express.json())
 
-const uploadDir = path.join(__dirname, '../public/uploads')
+const uploadDir = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '../public/uploads'))
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true })
 }
+
+const imageExtensions = new Map([
+    ['image/jpeg', '.jpg'],
+    ['image/png', '.png'],
+    ['image/webp', '.webp'],
+    ['image/gif', '.gif'],
+    ['image/avif', '.avif'],
+])
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -54,13 +63,52 @@ const storage = multer.diskStorage({
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9)
-        const ext = path.extname(file.originalname)
-        const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, '_')
+        const ext = imageExtensions.get(file.mimetype)
+        const baseName = path.basename(file.originalname, path.extname(file.originalname))
+            .replace(/[^a-zA-Z0-9]/g, '_')
         cb(null, `${baseName}-${uniqueSuffix}${ext}`)
     },
 })
 
-const upload = multer({ storage })
+const upload = multer({
+    storage,
+    limits: { fileSize: 15 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (!imageExtensions.has(file.mimetype)) {
+            cb(new Error('Only JPEG, PNG, WebP, GIF, and AVIF images are allowed.'))
+            return
+        }
+        cb(null, true)
+    },
+})
+
+const requireFirebaseAuth = async (req, res, next) => {
+    const authorization = req.get('authorization') || ''
+    const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : ''
+    if (!token) {
+        return res.status(401).json({ error: 'Sign in before uploading a photo.' })
+    }
+    if (!getApps().length) {
+        return res.status(503).json({ error: 'Upload authentication is not configured on the API.' })
+    }
+
+    try {
+        req.firebaseUser = await getAuth().verifyIdToken(token)
+        return next()
+    } catch {
+        return res.status(401).json({ error: 'Your sign-in expired. Sign in again and retry the upload.' })
+    }
+}
+
+const handleUpload = (req, res, next) => {
+    upload.single('file')(req, res, (error) => {
+        if (!error) return next()
+        if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(413).json({ error: 'Photo must be smaller than 15 MB.' })
+        }
+        return res.status(400).json({ error: error.message || 'Invalid photo upload.' })
+    })
+}
 
 app.use('/uploads', express.static(uploadDir))
 
@@ -68,20 +116,15 @@ app.get('/', (req, res) => {
     res.send('District2Rismo payment & upload API is running.')
 })
 
-app.post('/api/upload', upload.single('file'), (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded.' })
-        }
-        return res.json({
-            message: 'File uploaded successfully',
-            filePath: `/uploads/${req.file.filename}`,
-            fileName: req.file.filename,
-        })
-    } catch (error) {
-        console.error('File upload error:', error.message)
-        return res.status(500).json({ error: 'Could not upload file.' })
+app.post('/api/upload', requireFirebaseAuth, handleUpload, (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded.' })
     }
+    return res.json({
+        message: 'File uploaded successfully',
+        filePath: `/uploads/${req.file.filename}`,
+        fileName: req.file.filename,
+    })
 })
 
 app.put('/api/properties/:id', async (req, res) => {

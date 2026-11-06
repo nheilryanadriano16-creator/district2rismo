@@ -11,7 +11,7 @@ Set these frontend environment variables in Vercel for each deployment environme
 
 The Express API is not deployed by this static frontend configuration. Host it separately and configure its `STRIPE_SECRET_KEY`, `FRONTEND_URL` (your Vercel domain), and Firebase Admin credentials as server-side environment variables. Do not put secret keys in variables prefixed with `VITE_`.
 
-The API currently stores uploads on local disk. That storage is not durable for Vercel serverless deployments; use persistent object storage such as Firebase Storage, or host the API on a service with persistent storage. Do not commit uploaded files or environment files. The existing files under `public/uploads/` are excluded from new commits, so migrate any images that must remain available to persistent storage before deploying.
+Property photo uploads are sent to the Express API and stored under `UPLOAD_DIR`. On Render, attach a persistent disk to the API service (for example, mounted at `/var/data`) and set `UPLOAD_DIR=/var/data/uploads`; otherwise uploaded files can disappear when the service restarts or redeploys. The API requires a signed-in Firebase ID token for uploads and accepts image files up to 15 MB. Verification documents continue to use Firebase Storage so they are not exposed through the public `/uploads` route. Do not commit uploaded files or environment files.
 
 ## Development
 
