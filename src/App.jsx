@@ -1,83 +1,80 @@
-﻿import { Routes, Route } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import { NotificationProvider } from './context/NotificationContext';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoutes } from './components/ProtectedRoutes.jsx';
 import { RoleBasedRedirect } from './components/RoleBasedRedirect.jsx';
 import { Snackbar } from './components/Snackbar.jsx';
-import Home from './pages/Home.jsx';
-import Destinations from './pages/Destinations.jsx';
-import PlaceDetails from './pages/PlaceDetails.jsx';
-import Account from './pages/Account.jsx';
-import ConfirmPayment from './pages/ConfirmPayment.jsx';
 import { LoginN } from './components/auth/LoginN.jsx';
 import { SignUpN } from './components/auth/SignUpN.jsx';
-import { HostN } from './pages/Host.jsx';
-import { ConfirmBooking } from './pages/HostConfirmBooking.jsx';
-import { HostViewPropertyPage } from './pages/HostViewPropertyDetails.jsx';
-import { HostMyProfilePage } from './pages/HostProfilePage.jsx';
-import { HostEditPropertyPage } from './pages/HostEditProperty.jsx';
-import { Admin } from './pages/Admin.jsx';
-import { AdminPropertyDetailsPage } from './pages/AdminPropertyDetailsPage.jsx';
-import { AdminReservationDetailsPage } from './pages/AdminReservationDetailsPage.jsx';
-import { AdminReviewDetailsPage } from './pages/AdminReviewDetailsPage.jsx';
-import { AdminProfilePage } from './pages/AdminProfile.jsx';
 import './App.css';
+
+const Home = lazy(() => import('./pages/Home.jsx'));
+const Destinations = lazy(() => import('./pages/Destinations.jsx'));
+const PlaceDetails = lazy(() => import('./pages/PlaceDetails.jsx'));
+const Account = lazy(() => import('./pages/Account.jsx'));
+const ConfirmPayment = lazy(() => import('./pages/ConfirmPayment.jsx'));
+const HostN = lazy(() => import('./pages/Host.jsx').then((module) => ({ default: module.HostN })));
+const HostMyProfilePage = lazy(() => import('./pages/HostProfilePage.jsx').then((module) => ({ default: module.HostMyProfilePage })));
+const Admin = lazy(() => import('./pages/Admin.jsx').then((module) => ({ default: module.Admin })));
+const AdminPropertyDetailsPage = lazy(() => import('./pages/AdminPropertyDetailsPage.jsx').then((module) => ({ default: module.AdminPropertyDetailsPage })));
+const AdminReservationDetailsPage = lazy(() => import('./pages/AdminReservationDetailsPage.jsx').then((module) => ({ default: module.AdminReservationDetailsPage })));
+const AdminReviewDetailsPage = lazy(() => import('./pages/AdminReviewDetailsPage.jsx').then((module) => ({ default: module.AdminReviewDetailsPage })));
+const AdminProfilePage = lazy(() => import('./pages/AdminProfile.jsx').then((module) => ({ default: module.AdminProfilePage })));
 
 function App() {
   return (
     <NotificationProvider>
       <AuthProvider>
         <Snackbar />
-        <Routes>
-          {import.meta.env.DEV && (
-            <>
-              <Route path="/admin-preview" element={<Admin preview />} />
-              <Route path="/admin-preview/properties/:id" element={<AdminPropertyDetailsPage preview />} />
-              <Route path="/admin-preview/reservations/:id" element={<AdminReservationDetailsPage preview />} />
-              <Route path="/admin-preview/reviews/:id" element={<AdminReviewDetailsPage preview />} />
-              <Route path="/admin-profile-preview" element={<AdminProfilePage preview />} />
-              <Route path="/host-preview/*" element={<HostN preview />} />
-              <Route path="/host-profile-preview" element={<HostMyProfilePage preview />} />
-            </>
-          )}
+        <Suspense fallback={<div className="d-flex min-vh-100 align-items-center justify-content-center text-white">Loading page...</div>}>
+          <Routes>
+            {import.meta.env.DEV && (
+              <>
+                <Route path="/admin-preview" element={<Admin preview />} />
+                <Route path="/admin-preview/properties/:id" element={<AdminPropertyDetailsPage preview />} />
+                <Route path="/admin-preview/reservations/:id" element={<AdminReservationDetailsPage preview />} />
+                <Route path="/admin-preview/reviews/:id" element={<AdminReviewDetailsPage preview />} />
+                <Route path="/admin-profile-preview" element={<AdminProfilePage preview />} />
+                <Route path="/host-preview/*" element={<HostN preview />} />
+                <Route path="/host-profile-preview" element={<HostMyProfilePage preview />} />
+              </>
+            )}
 
-          {/* Root route with auto-redirect for Admin */}
-          <Route
-            path="/"
-            element={
-              <RoleBasedRedirect>
-                <Home />
-              </RoleBasedRedirect>
-            }
-          />
+            <Route
+              path="/"
+              element={
+                <RoleBasedRedirect>
+                  <Home />
+                </RoleBasedRedirect>
+              }
+            />
 
-          <Route path="/destination" element={<Destinations />} />
-          <Route path="/resorts/:id" element={<PlaceDetails />} />
-          <Route path="/destinationdetails" element={<PlaceDetails />} />
-          <Route path="/pay" element={<ConfirmPayment />} />
-          <Route path="/login" element={<LoginN />} />
-          <Route path="/signup" element={<SignUpN />} />
+            <Route path="/destination" element={<Destinations />} />
+            <Route path="/resorts/:id" element={<PlaceDetails />} />
+            <Route path="/destinationdetails" element={<PlaceDetails />} />
+            <Route path="/pay" element={<ConfirmPayment />} />
+            <Route path="/login" element={<LoginN />} />
+            <Route path="/signup" element={<SignUpN />} />
 
-          {/* Customer & Host accessible pages */}
-          <Route element={<ProtectedRoutes allowedRoles={["customer", "host"]} />}>
-            <Route path="/account" element={<Account />} />
-          </Route>
+            <Route element={<ProtectedRoutes allowedRoles={["customer", "host"]} />}>
+              <Route path="/account" element={<Account />} />
+            </Route>
 
-          {/* Host specific routes */}
-          <Route element={<ProtectedRoutes allowedRoles={["host"]} />}>
-            <Route path="/host/profile" element={<HostMyProfilePage />} />
-            <Route path="/host/*" element={<HostN />} />
-          </Route>
+            <Route element={<ProtectedRoutes allowedRoles={["host"]} />}>
+              <Route path="/host/profile" element={<HostMyProfilePage />} />
+              <Route path="/host/*" element={<HostN />} />
+            </Route>
 
-          {/* Admin specific routes */}
-          <Route element={<ProtectedRoutes allowedRoles={['admin']} />}>
-            <Route path="/admin/profile" element={<AdminProfilePage />} />
-            <Route path="/admin/properties/:id" element={<AdminPropertyDetailsPage />} />
-            <Route path="/admin/reservations/:id" element={<AdminReservationDetailsPage />} />
-            <Route path="/admin/reviews/:id" element={<AdminReviewDetailsPage />} />
-            <Route path="/admin/*" element={<Admin />} />
-          </Route>
-        </Routes>
+            <Route element={<ProtectedRoutes allowedRoles={['admin']} />}>
+              <Route path="/admin/profile" element={<AdminProfilePage />} />
+              <Route path="/admin/properties/:id" element={<AdminPropertyDetailsPage />} />
+              <Route path="/admin/reservations/:id" element={<AdminReservationDetailsPage />} />
+              <Route path="/admin/reviews/:id" element={<AdminReviewDetailsPage />} />
+              <Route path="/admin/*" element={<Admin />} />
+            </Route>
+          </Routes>
+        </Suspense>
       </AuthProvider>
     </NotificationProvider>
   );

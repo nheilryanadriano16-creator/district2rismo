@@ -2,8 +2,7 @@ import resortImage from '../../images/Bustos Hero.png'
 import { resolveUploadUrl } from '../../utils/uploads'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { collection, query, where, getDocs } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { fetchHostBookings, fetchHostProperties, parseAmount } from '../../utils/hostData'
 
 const money = (amount) =>
     `₱${Number(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
@@ -19,34 +18,41 @@ export const HostEarningSummary = () => {
         transactions: [],
     })
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState('')
 
     useEffect(() => {
         let isMounted = true
 
         async function loadEarnings() {
-            if (!currentUser?.uid) return
+            if (!currentUser?.uid) {
+                setSummary({ total: 0, fees: 0, net: 0, completedCount: 0, transactions: [] })
+                setLoading(false)
+                return
+            }
             try {
                 setLoading(true)
+                setError('')
+                setSummary({ total: 0, fees: 0, net: 0, completedCount: 0, transactions: [] })
                 const now = new Date()
                 const currentMonth = now.getMonth()
                 const currentYear = now.getFullYear()
-
-                // Query all bookings in Firestore
-                const bookingsSnap = await getDocs(collection(db, 'bookings'))
-                
+                const properties = await fetchHostProperties(currentUser.uid, { email: currentUser.email })
+                const bookings = await fetchHostBookings(currentUser.uid, properties)
                 let totalAmount = 0
                 let completed = 0
                 const txList = []
 
-                bookingsSnap.docs.forEach((docItem) => {
-                    const data = docItem.data()
-                    
-                    // Filter by host property or email if stored, or list all bookings linked to host
+                bookings.forEach((data) => {
                     const status = String(data.status || '').toLowerCase()
-                    
-                    // Consider Accepted, Confirmed, and Completed bookings as earnings
                     if (['accepted', 'confirmed', 'completed'].includes(status)) {
-                        const bookingDate = data.date ? new Date(data.date) : new Date()
+                        const rawDate = data.date || data.startDate
+                        const bookingDate = typeof rawDate?.toDate === 'function'
+                            ? rawDate.toDate()
+                            : rawDate instanceof Date
+                                ? rawDate
+                                : new Date(rawDate)
+                        if (Number.isNaN(bookingDate.getTime())) return
+
                         const bookingMonth = bookingDate.getMonth()
                         const bookingYear = bookingDate.getFullYear()
 
@@ -54,15 +60,15 @@ export const HostEarningSummary = () => {
                         const isThisYear = bookingYear === currentYear
 
                         if ((period === 'This Month' && isThisMonth) || (period === 'This Year' && isThisYear)) {
-                            const amount = Number(data.total || data.totalAmount || 0)
+                            const amount = parseAmount(data.total || data.totalAmount || data.amountPaid || 0)
                             totalAmount += amount
                             completed += 1
 
                             txList.push({
-                                id: docItem.id,
+                                id: data.id,
                                 resort: data.propertyName || data.resort || 'Resort Property',
                                 booking: data.session || 'Day Tour',
-                                date: data.date || 'Recently',
+                                date: bookingDate.toLocaleDateString('en-PH'),
                                 amount: money(amount),
                                 rawAmount: amount,
                                 image: resolveUploadUrl(data.imageUrl || data.image) || resortImage,
@@ -85,6 +91,7 @@ export const HostEarningSummary = () => {
                 }
             } catch (error) {
                 console.error('Error loading host earnings:', error)
+                if (isMounted) setError('Could not load earnings for this account. Please try again.')
             } finally {
                 if (isMounted) setLoading(false)
             }
@@ -94,7 +101,7 @@ export const HostEarningSummary = () => {
         return () => {
             isMounted = false
         }
-    }, [currentUser, period])
+    }, [currentUser?.uid, currentUser?.email, period])
 
     return (
         <section className="host-earningN container-fluid p-3 p-md-4">
@@ -139,6 +146,8 @@ export const HostEarningSummary = () => {
 
             {loading ? (
                 <p className="small text-secondary mb-0">Loading earnings...</p>
+            ) : error ? (
+                <p className="small text-danger mb-0" role="alert">{error}</p>
             ) : (
                 <div className="d-flex flex-column gap-2">
                     {summary.transactions.map((transaction) => (
