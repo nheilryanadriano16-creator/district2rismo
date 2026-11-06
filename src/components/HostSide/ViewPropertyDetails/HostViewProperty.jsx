@@ -12,7 +12,26 @@ export const HostViewProperty = ({
     const [showMore, setShowMore] = useState(false)
     const name = property?.name || 'Untitled Property'
     const location = property?.location || property?.address || 'Location Not Specified'
-    const galleryImages = property?.galleryImages?.length ? property.galleryImages : []
+    
+    const propertyImage = property?.image || 
+        property?.imageUrl || 
+        property?.images?.[0] || 
+        property?.mediaPhotos?.cover?.[0]?.preview || 
+        property?.mediaPhotos?.cover?.[0]?.localPath || 
+        property?.mediaPhotos?.cover?.[0]?.url ||
+        property?.media?.cover?.[0]?.preview || 
+        property?.media?.cover?.[0]?.localPath || 
+        property?.media?.cover?.[0]?.url ||
+        resortImage
+
+    const rawGallery = property?.galleryImages || 
+        property?.images || 
+        property?.mediaPhotos?.gallery || 
+        property?.media?.gallery || []
+
+    const galleryImages = rawGallery.map(item => 
+        typeof item === 'string' ? item : (item?.preview || item?.localPath || item?.url || '')
+    ).filter(Boolean)
     
     const features = property?.amenities?.length
         ? Array.from({ length: Math.ceil(property.amenities.length / 2) }, (_, index) => [
@@ -21,7 +40,13 @@ export const HostViewProperty = ({
         ])
         : []
 
-    const bedrooms = property?.bedrooms || []
+    const rawBedrooms = property?.bedrooms || property?.cottages || []
+    const bedrooms = rawBedrooms.map(bed => ({
+        ...bed,
+        photo: bed.photo || bed.image || bed.localPath || bed.preview || bed.url || 
+               (Array.isArray(bed.photos) ? (bed.photos[0]?.preview || bed.photos[0]?.localPath || bed.photos[0]?.url) : null)
+    }))
+
     const tours = property?.tourSettings
 
     const bedroomDescription = (bedroom) => bedroom.description || [
@@ -49,7 +74,7 @@ export const HostViewProperty = ({
                 <div className="col-12 col-md-7">
                     <img
                         className="host-view-property-main-imageN rounded-2 w-100"
-                        src={property?.image || resortImage}
+                        src={propertyImage}
                         alt={name}
                     />
                 </div>
@@ -229,3 +254,5 @@ export const HostViewProperty = ({
         </section>
     )
 }
+
+export default HostViewProperty

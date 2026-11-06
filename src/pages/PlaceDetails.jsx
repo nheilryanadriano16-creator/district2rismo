@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore'
 import { db } from '../firebase'
 import NavBar from '../components/NavBarDetails.jsx'
-import PhotoGallery from '../components/PhotoGallery.jsx'
 import CottageCard from '../components/StayCard.jsx'
 import Footer from '../components/Footer.jsx'
 import BookingCard from '../components/BookingCard.jsx'
@@ -109,8 +108,26 @@ function PlaceDetails() {
 
     const name = property?.name || 'Untitled Property'
     const location = property?.location || property?.address || (property?.municipality ? `${property.municipality}, Bulacan` : 'Location Not Specified')
-    const galleryImages = property?.galleryImages?.length ? property.galleryImages : []
-    const images = galleryImages.length > 0 ? galleryImages : [property?.image || resortImage]
+    
+    const propertyImage = property?.image || 
+        property?.imageUrl || 
+        property?.images?.[0] || 
+        property?.mediaPhotos?.cover?.[0]?.preview || 
+        property?.mediaPhotos?.cover?.[0]?.localPath || 
+        property?.mediaPhotos?.cover?.[0]?.url ||
+        property?.media?.cover?.[0]?.preview || 
+        property?.media?.cover?.[0]?.localPath || 
+        property?.media?.cover?.[0]?.url ||
+        resortImage
+
+    const rawGallery = property?.galleryImages || 
+        property?.images || 
+        property?.mediaPhotos?.gallery || 
+        property?.media?.gallery || []
+
+    const galleryImages = rawGallery.map(item => 
+        typeof item === 'string' ? item : (item?.preview || item?.localPath || item?.url || '')
+    ).filter(Boolean)
 
     const features = property?.amenities?.length
         ? Array.from({ length: Math.ceil(property.amenities.length / 2) }, (_, index) => [
@@ -119,7 +136,13 @@ function PlaceDetails() {
         ])
         : []
 
-    const bedrooms = property?.bedrooms || property?.cottages || []
+    const rawBedrooms = property?.bedrooms || property?.cottages || []
+    const bedrooms = rawBedrooms.map(bed => ({
+        ...bed,
+        photo: bed.photo || bed.image || bed.localPath || bed.preview || bed.url || 
+               (Array.isArray(bed.photos) ? (bed.photos[0]?.preview || bed.photos[0]?.localPath || bed.photos[0]?.url) : null)
+    }))
+
     const tours = property?.tourSettings
     const hasActiveTours = tours?.day?.enabled || tours?.night?.enabled || tours?.flexible?.enabled
 
@@ -131,7 +154,7 @@ function PlaceDetails() {
     const resort = {
         name: name,
         location: location,
-        image: property?.image || resortImage,
+        image: propertyImage,
         rating: property?.rating || 0,
         reviewCount: property?.reviewCount || 0,
         price: property?.price || property?.rate || tours?.day?.price || 15000,
@@ -156,7 +179,31 @@ function PlaceDetails() {
                     <span className="text-warning">Property Details</span>
                 </nav>
 
-                <PhotoGallery images={images} />
+                <div className="row g-3 mx-2">
+                    <div className="col-12 col-md-7">
+                        <img
+                            className="rounded-2 w-100"
+                            src={propertyImage}
+                            alt={name}
+                            style={{ height: '400px', objectFit: 'cover' }}
+                        />
+                    </div>
+
+                    <div className="col-12 col-md-5">
+                        <div className="row g-2">
+                            {galleryImages.slice(0, 4).map((image, index) => (
+                                <div className="col-6" key={index}>
+                                    <img
+                                        className="rounded-2 w-100"
+                                        src={image}
+                                        alt={`${name} gallery ${index + 1}`}
+                                        style={{ height: '192px', objectFit: 'cover' }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
 
                 <div className='details-parent-container row'>
                     <div className='details col-12 col-lg-7'>
@@ -270,7 +317,7 @@ function PlaceDetails() {
                                     {bedrooms.map((bedroom, index) => (
                                         <CottageCard 
                                             key={bedroom.id || index} 
-                                            image={bedroom.photo || bedroom.image || resortImage}
+                                            image={bedroom.photo || resortImage}
                                             name={bedroom.name}
                                             capacity={bedroom.capacity}
                                             price={bedroomDescription(bedroom)}

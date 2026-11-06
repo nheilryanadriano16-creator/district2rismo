@@ -37,7 +37,17 @@ export function AdminPropertyDetails({
         : currentProperty.owner || currentProperty.ownerName || 'Unknown Owner'
 
     const displayStatus = currentProperty.status || 'Pending'
-    const propertyImage = currentProperty.image || currentProperty.imageUrl || (currentProperty.images && currentProperty.images[0]) || resortImage
+    
+    const propertyImage = currentProperty?.image || 
+        currentProperty?.imageUrl || 
+        currentProperty?.images?.[0] || 
+        currentProperty?.mediaPhotos?.cover?.[0]?.preview || 
+        currentProperty?.mediaPhotos?.cover?.[0]?.localPath || 
+        currentProperty?.mediaPhotos?.cover?.[0]?.url ||
+        currentProperty?.media?.cover?.[0]?.preview || 
+        currentProperty?.media?.cover?.[0]?.localPath || 
+        currentProperty?.media?.cover?.[0]?.url ||
+        resortImage
 
     const statusLower = displayStatus.toLowerCase()
     const isApproved = statusLower === 'approved' || statusLower === 'active'
