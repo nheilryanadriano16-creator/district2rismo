@@ -24,7 +24,13 @@ const photoGroupLabels = {
 const formatFileSize = (bytes) => `${(bytes / 1024).toFixed(2)}kb`
 
 export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyChange, isEditing = false, editNavigation }) => {
-    const [files, setFiles] = useState(property?.verificationFiles || {})
+    // Filter out accidental property field leaks from verificationFiles
+    const validGroupIds = new Set(uploadGroups.flat().map(g => g.id))
+    const cleanInitialFiles = Object.fromEntries(
+        Object.entries(property?.verificationFiles || {}).filter(([key]) => validGroupIds.has(key))
+    )
+
+    const [files, setFiles] = useState(cleanInitialFiles)
     const [imagePreviews, setImagePreviews] = useState({})
     const [errors, setErrors] = useState({})
 
@@ -49,24 +55,29 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
         if (!file) return
 
         const objectUrl = URL.createObjectURL(file)
+        let serverFilePath = `/uploads/${file.name}`
 
         const formData = new FormData()
-        formData.append('file', file)
+        formData.append('file', file, file.name)
 
         try {
-            await fetch('http://localhost:4242/api/upload', {
+            const response = await fetch('http://localhost:4242/api/upload', {
                 method: 'POST',
                 body: formData,
             })
+            const data = await response.json()
+            if (data.filePath) {
+                serverFilePath = data.filePath
+            }
         } catch (error) {
-            console.error(error)
+            console.error('Local upload failed:', error)
         }
 
         const fileRecord = {
             name: file.name,
             size: file.size,
             type: file.type,
-            localPath: `/uploads/${file.name}`,
+            localPath: serverFilePath,
             previewUrl: objectUrl,
         }
 
@@ -124,6 +135,7 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
             <label
                 className="form-control host-verification-uploadN d-flex align-items-center justify-content-between"
                 htmlFor={`upload-${group.id}`}
+                style={{ cursor: 'pointer' }}
             >
                 <span>Upload png, jpg, or pdf</span>
                 <i className="bi bi-upload" aria-hidden="true" />
@@ -153,6 +165,7 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
                             className="host-photo-thumbnailN rounded-1"
                             src={imagePreviews[group.id]}
                             alt=""
+                            style={{ width: '32px', height: '32px', objectFit: 'cover' }}
                         />
                     ) : (
                         <i
@@ -189,6 +202,7 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
                         event.preventDefault()
                         addFile(group.id, event.dataTransfer.files?.[0])
                     }}
+                    style={{ cursor: 'pointer' }}
                 >
                     or drag and drop file here
                 </label>
@@ -225,6 +239,7 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
                                         className="host-photo-thumbnailN rounded-1"
                                         src={photo.src}
                                         alt=""
+                                        style={{ width: '32px', height: '32px', objectFit: 'cover' }}
                                     />
                                     <span className="small text-truncate flex-grow-1">
                                         <a
@@ -276,3 +291,5 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
         </section>
     )
 }
+
+export default VerificationSubmission
