@@ -79,6 +79,8 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
                 preview,
                 localPath: '',
                 uploadStatus: 'uploading',
+                uploadPhase: 'preparing',
+                uploadProgress: 0,
             }
         })
         const previousGroupPhotos = photos[group.id] || []
@@ -92,7 +94,16 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
         setIsUploading(true)
 
         const uploadResults = await Promise.allSettled(
-            selectedFiles.map((photo) => uploadFile(photo.file))
+            selectedFiles.map((photo) => uploadFile(photo.file, 'property-media', (uploadProgress) => {
+                setPhotos((current) => ({
+                    ...current,
+                    [group.id]: (current[group.id] || []).map((item) => (
+                        item.id === photo.id
+                            ? { ...item, uploadPhase: 'uploading', uploadProgress }
+                            : item
+                    )),
+                }))
+            }))
         )
         const photosWithUploadResults = updatedPhotos[group.id].map((photo) => {
             const selectedIndex = selectedFiles.findIndex((selected) => selected.id === photo.id)
@@ -100,7 +111,7 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
 
             const result = uploadResults[selectedIndex]
             return result.status === 'fulfilled'
-                ? { ...photo, localPath: result.value, uploadStatus: 'uploaded' }
+                ? { ...photo, localPath: result.value, uploadStatus: 'uploaded', uploadProgress: 100 }
                 : { ...photo, uploadStatus: 'failed' }
         })
         const hasSuccessfulUpload = selectedFiles.some((photo, index) => (
@@ -221,7 +232,8 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
                                 <span className="small text-truncate flex-grow-1">
                                     <span className="text-warning">{photo.file.name}</span>
                                     {' '}({formatFileSize(photo.file.size)})
-                                    {photo.uploadStatus === 'uploading' && ' - Uploading...'}
+                                    {photo.uploadStatus === 'uploading' && photo.uploadPhase === 'preparing' && ' - Preparing image...'}
+                                    {photo.uploadStatus === 'uploading' && photo.uploadPhase === 'uploading' && ` - Uploading ${photo.uploadProgress}%`}
                                     {photo.uploadStatus === 'failed' && ' - Upload failed; remove and try again.'}
                                 </span>
                                 <button
