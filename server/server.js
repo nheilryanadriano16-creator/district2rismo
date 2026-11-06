@@ -7,8 +7,8 @@ const multer = require('multer')
 const { applicationDefault, getApps, initializeApp } = require('firebase-admin/app')
 const { getAuth } = require('firebase-admin/auth')
 const { FieldValue, getFirestore } = require('firebase-admin/firestore')
+const { v2: cloudinary } = require('cloudinary')
 const path = require('path')
-const fs = require('fs')
 
 if (!getApps().length) {
     try {
@@ -37,6 +37,13 @@ if (!process.env.STRIPE_SECRET_KEY) {
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true,
+})
+
 app.use(cors({
     origin: (origin, callback) => {
         callback(null, !origin || allowedFrontendOrigins.has(origin))
@@ -44,37 +51,19 @@ app.use(cors({
 }))
 app.use(express.json())
 
-const uploadDir = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '../public/uploads'))
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true })
-}
-
-const imageExtensions = new Map([
-    ['image/jpeg', '.jpg'],
-    ['image/png', '.png'],
-    ['image/webp', '.webp'],
-    ['image/gif', '.gif'],
-    ['image/avif', '.avif'],
+const imageMimeTypes = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/avif',
 ])
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadDir)
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9)
-        const ext = imageExtensions.get(file.mimetype)
-        const baseName = path.basename(file.originalname, path.extname(file.originalname))
-            .replace(/[^a-zA-Z0-9]/g, '_')
-        cb(null, `${baseName}-${uniqueSuffix}${ext}`)
-    },
-})
-
 const upload = multer({
-    storage,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 15 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-        if (!imageExtensions.has(file.mimetype)) {
+        if (!imageMimeTypes.has(file.mimetype)) {
             cb(new Error('Only JPEG, PNG, WebP, GIF, and AVIF images are allowed.'))
             return
         }
@@ -110,22 +99,47 @@ const handleUpload = (req, res, next) => {
     })
 }
 
-app.use('/uploads', express.static(uploadDir))
-
 app.get('/', (req, res) => {
     res.send('District2Rismo payment & upload API is running.')
 })
 
-app.post('/api/upload', requireFirebaseAuth, handleUpload, (req, res) => {
+app.post('/api/upload', requireFirebaseAuth, handleUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded.' })
     }
-    return res.json({
-        message: 'File uploaded successfully',
-        filePath: `/uploads/${req.file.filename}`,
-        fileName: req.file.filename,
-    })
+
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+        return res.status(503).json({ error: 'Cloudinary is not configured on the upload server.' })
+    }
+
+    try {
+        const result = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream({
+                folder: `district2rismo/properties/${req.firebaseUser.uid}`,
+                resource_type: 'image',
+                allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'],
+            }, (error, uploaded) => {
+                if (error) {
+                    reject(error)
+                    return
+                }
+                resolve(uploaded)
+            })
+            uploadStream.end(req.file.buffer)
+        })
+
+        return res.json({
+            message: 'File uploaded successfully',
+            filePath: result.secure_url,
+            fileName: result.public_id,
+        })
+    } catch (error) {
+        console.error('Cloudinary photo upload failed:', error.message)
+        return res.status(502).json({ error: 'Cloudinary could not save the photo. Please try again.' })
+    }
 })
+
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')))
 
 app.put('/api/properties/:id', async (req, res) => {
     try {
