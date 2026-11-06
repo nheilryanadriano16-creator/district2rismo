@@ -65,7 +65,7 @@ function Featured() {
                                 name={property.name}
                                 town={property.municipality || property.location || property.address || 'Bulacan'}
                                 desc={property.shortDescription || property.description}
-                                link={`/destination/${property.id}`}
+                                link={`/resorts/${property.id}`}
                             />
                         </div>
                     ))

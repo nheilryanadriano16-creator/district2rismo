@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore'
 import { sendPasswordResetEmail } from 'firebase/auth'
 import { auth, db } from '../firebase'
+import { resolveUploadUrl } from './uploads'
 
 const PLATFORM_FEE_RATE = 0.03
 
@@ -165,7 +166,7 @@ async function readCollection(name) {
 
 function persistPhoto(photo, index) {
   const name = photo?.name || photo?.file?.name || `photo-${index}`
-  const localPath = photo?.localPath || `/uploads/${name}`
+  const localPath = resolveUploadUrl(photo?.localPath || photo?.preview || '')
   return {
     id: photo?.id || `${index}`,
     name,
@@ -179,7 +180,7 @@ function persistVerification(files = {}) {
   const entries = Object.entries(files).map(([id, file]) => {
     if (!file) return [id, null]
     const name = file.name || id
-    const localPath = file.localPath || `/uploads/${name}`
+    const localPath = resolveUploadUrl(file.localPath || '')
     return [id, {
       name,
       type: file.type || '',
@@ -204,7 +205,7 @@ function persistBedrooms(bedrooms = []) {
     const rest = { ...bedroom }
     delete rest.file
     delete rest.photo
-    return { ...rest, photo: '' }
+    return { ...rest, localPath: resolveUploadUrl(bedroom.localPath || ''), photo: '' }
   })
 }
 
@@ -231,6 +232,10 @@ export async function saveHostProperty(uid, userData, property, mode = 'add') {
   const cover = mediaPhotos.cover?.[0]?.localPath || ''
   const galleryImages = (mediaPhotos.gallery || []).map((photo) => photo.localPath)
   const location = property?.location || (property?.municipality ? `${property.municipality}, Bulacan` : '')
+  const coordinates = property?.coordinates
+  const hasValidCoordinates =
+    Number.isFinite(Number(coordinates?.lat)) &&
+    Number.isFinite(Number(coordinates?.lng))
   const ownerName = ownerNameFrom(userData)
 
   const payload = sanitizeForFirestore({
@@ -238,6 +243,14 @@ export async function saveHostProperty(uid, userData, property, mode = 'add') {
     municipality: property?.municipality || '',
     address: property?.address || '',
     location,
+    ...(hasValidCoordinates
+      ? {
+          coordinates: {
+            lat: Number(coordinates.lat),
+            lng: Number(coordinates.lng),
+          },
+        }
+      : {}),
     shortDescription: property?.shortDescription || '',
     description: property?.description || '',
     amenities: property?.amenities || [],

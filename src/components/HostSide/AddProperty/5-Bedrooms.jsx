@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { uploadFile } from '../../../utils/uploads'
 
 const amenityOptions = [
     'Air Conditioning',
@@ -22,35 +23,23 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
 
     const bedroomFormStarted = Boolean(editingId || name.trim() || capacity || price || photo)
 
-    const uploadFileToServer = async (file) => {
-        const formData = new FormData()
-        formData.append('file', file)
-        try {
-            const response = await fetch('http://localhost:4242/api/upload', {
-                method: 'POST',
-                body: formData,
-            })
-            const data = await response.json()
-            return data.filePath || `/uploads/${file.name}`
-        } catch (error) {
-            console.error('Local upload failed:', error)
-            return `/uploads/${file.name}`
-        }
-    }
-
     const handlePhotoChange = async (event) => {
         const file = event.target.files?.[0]
         if (!file) return
 
-        const localPath = await uploadFileToServer(file)
-        const objectUrl = URL.createObjectURL(file)
-
-        setPhoto({
-            name: file.name,
-            size: file.size,
-            preview: objectUrl,
-            localPath,
-        })
+        try {
+            const localPath = await uploadFile(file)
+            const objectUrl = URL.createObjectURL(file)
+            setPhoto({
+                name: file.name,
+                size: file.size,
+                preview: objectUrl,
+                localPath,
+            })
+            setValidationError('')
+        } catch (error) {
+            setValidationError(error.message || 'Could not upload the bedroom photo.')
+        }
 
         event.target.value = ''
     }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { resolveUploadUrl, uploadFile } from '../../../utils/uploads'
 
 const uploadGroups = [
     [
@@ -33,6 +34,7 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
     const [files, setFiles] = useState(cleanInitialFiles)
     const [imagePreviews, setImagePreviews] = useState({})
     const [errors, setErrors] = useState({})
+    const [uploadError, setUploadError] = useState('')
 
     const savedPhotoGroups = Object.entries(property?.mediaPhotos || {})
     const uploadedPhotos = savedPhotoGroups.length
@@ -40,7 +42,7 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
             id: `${groupId}-${photo.id}`,
             name: photo.name || photoGroupLabels[groupId] || groupId,
             size: photo.size,
-            src: photo.preview || photo.localPath,
+            src: resolveUploadUrl(photo.preview || photo.localPath),
         })))
         : [
             ...(property?.image ? [{ id: 'cover', name: 'Cover Photo', src: property.image }] : []),
@@ -55,23 +57,15 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
         if (!file) return
 
         const objectUrl = URL.createObjectURL(file)
-        let serverFilePath = `/uploads/${file.name}`
-
-        const formData = new FormData()
-        formData.append('file', file, file.name)
-
+        let serverFilePath
         try {
-            const response = await fetch('http://localhost:4242/api/upload', {
-                method: 'POST',
-                body: formData,
-            })
-            const data = await response.json()
-            if (data.filePath) {
-                serverFilePath = data.filePath
-            }
+            serverFilePath = await uploadFile(file)
         } catch (error) {
-            console.error('Local upload failed:', error)
+            URL.revokeObjectURL(objectUrl)
+            setUploadError(error.message || 'Could not upload verification file.')
+            return
         }
+        setUploadError('')
 
         const fileRecord = {
             name: file.name,
@@ -175,7 +169,7 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
                     )}
                     <span className="small text-truncate flex-grow-1">
                         <a
-                            href={files[group.id].previewUrl || imagePreviews[group.id] || files[group.id].localPath || '#'}
+                            href={files[group.id].previewUrl || imagePreviews[group.id] || resolveUploadUrl(files[group.id].localPath) || '#'}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-warning text-decoration-none"
@@ -227,6 +221,7 @@ export const VerificationSubmission = ({ onBack, onSubmit, property, onPropertyC
             <h1 className="h5 fw-bold text-warning mb-4">
                 7. Verification &amp; Submission
             </h1>
+            {uploadError && <div className="alert alert-danger py-2" role="alert">{uploadError}</div>}
 
             {uploadedPhotos.length > 0 && (
                 <section className="mb-4" aria-label="Uploaded property photos">

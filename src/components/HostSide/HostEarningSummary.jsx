@@ -1,4 +1,5 @@
 import resortImage from '../../images/Bustos Hero.png'
+import { resolveUploadUrl } from '../../utils/uploads'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { collection, query, where, getDocs } from 'firebase/firestore'
@@ -64,7 +65,7 @@ export const HostEarningSummary = () => {
                                 date: data.date || 'Recently',
                                 amount: money(amount),
                                 rawAmount: amount,
-                                image: data.imageUrl || data.image || resortImage,
+                                image: resolveUploadUrl(data.imageUrl || data.image) || resortImage,
                             })
                         }
                     }

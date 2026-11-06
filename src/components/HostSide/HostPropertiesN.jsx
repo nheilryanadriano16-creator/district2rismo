@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import resortImage from '../../images/Bustos Hero.png'
 import { useAuth } from '../../context/AuthContext'
 import { deleteHostProperty, fetchHostProperties } from '../../utils/hostData'
+import { resolveUploadUrl } from '../../utils/uploads'
 
 export const HostPropertiesN = ({ onAddProperty, onViewProperty, onDeleteProperty }) => {
     const { currentUser } = useAuth()
@@ -62,7 +63,7 @@ export const HostPropertiesN = ({ onAddProperty, onViewProperty, onDeletePropert
                 {loading && <p className="small text-secondary mb-0">Loading properties...</p>}
                 {!loading && properties.map((property) => (
                     <article key={property.id} className="host-property-rowN d-flex align-items-center gap-2 rounded-3 p-2">
-                        <img className="host-property-imageN rounded-2" src={property.image || property.imageUrl || resortImage} alt={property.name} />
+                        <img className="host-property-imageN rounded-2" src={resolveUploadUrl(property.image || property.imageUrl) || resortImage} alt={property.name} />
 
                         <div className="flex-grow-1 min-w-0">
                             <h2 className="h6 mb-0">{property.name}</h2>

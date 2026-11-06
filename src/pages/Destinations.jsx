@@ -7,6 +7,7 @@ import Modal from 'react-bootstrap/Modal'
 import { FilterN } from '../components/FilterN.jsx'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
+import { resolveUploadUrl } from '../utils/uploads'
 
 const ALLOWED_TOWNS = ['Baliwag', 'Bustos', 'Plaridel']
 
@@ -16,7 +17,7 @@ const getLowestRate = (data) => {
     if (data.tourSettings) {
         Object.values(data.tourSettings).forEach((tour) => {
             if (tour?.enabled && tour?.rate) {
-                const parsedRate = parseFloat(tour.rate)
+                const parsedRate = parseFloat(String(tour.rate).replace(/[^\d.]/g, ''))
                 if (!isNaN(parsedRate)) {
                     rates.push(parsedRate)
                 }
@@ -25,18 +26,17 @@ const getLowestRate = (data) => {
     }
 
     if (rates.length === 0 && data.price) {
-        const parsedPrice = parseFloat(data.price)
+        const parsedPrice = parseFloat(String(data.price).replace(/[^\d.]/g, ''))
         if (!isNaN(parsedPrice)) {
             rates.push(parsedPrice)
         }
     }
 
     if (rates.length > 0) {
-        const minRate = Math.min(...rates)
-        return `Starts at ₱${minRate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        return Math.min(...rates)
     }
 
-    return 'Starts at ₱5,000.00'
+    return 5000
 }
 
 function Destinations() {
@@ -44,6 +44,13 @@ function Destinations() {
     const [resorts, setResorts] = useState([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
+    const [filters, setFilters] = useState({
+        minPrice: 200,
+        maxPrice: 25000,
+        amenities: {},
+        rooms: 0,
+        beds: 0,
+    })
 
     useEffect(() => {
         const fetchProperties = async () => {
@@ -64,20 +71,45 @@ function Destinations() {
                         rawTown.toLowerCase().includes(t.toLowerCase())
                     )
 
-                    const propertyImage =
+                    const propertyImage = resolveUploadUrl(
                         data.image ||
                         data.imageUrl ||
                         (data.images && data.images[0]) ||
                         data.mediaPhotos?.cover?.[0]?.localPath ||
-                        Sample
+                        data.mediaPhotos?.cover?.[0]?.preview
+                    ) || Sample
+                    const bedrooms = Array.isArray(data.bedrooms)
+                        ? data.bedrooms
+                        : Array.isArray(data.cottages)
+                            ? data.cottages
+                            : []
+                    const priceAmount = getLowestRate(data)
+                    const amenities = [
+                        ...(Array.isArray(data.amenities) ? data.amenities : []),
+                        ...bedrooms.flatMap((bedroom) =>
+                            Array.isArray(bedroom.amenities) ? bedroom.amenities : []
+                        ),
+                    ]
+                    const bedsCount = bedrooms.reduce(
+                        (total, bedroom) =>
+                            total +
+                            (Array.isArray(bedroom.beds)
+                                ? bedroom.beds.reduce((bedTotal, bed) => bedTotal + (Number(bed.quantity) || 0), 0)
+                                : 0),
+                        0
+                    )
 
                     return {
                         id: doc.id,
                         name: data.name || 'Unnamed Property',
                         town: matchedTown || 'Baliwag',
-                        price: getLowestRate(data),
+                        price: `Starts at ₱${priceAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                        priceAmount,
                         image: propertyImage,
                         description: data.shortDescription || data.description || '',
+                        amenities,
+                        roomsCount: bedrooms.length,
+                        bedsCount,
                     }
                 })
 
@@ -92,11 +124,20 @@ function Destinations() {
         fetchProperties()
     }, [])
 
-    const filteredResorts = resorts.filter(
-        (r) =>
-            (r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                r.town.toLowerCase().includes(searchTerm.toLowerCase())) &&
-            ALLOWED_TOWNS.includes(r.town)
+    const selectedAmenities = Object.values(filters.amenities).flat()
+    const filteredResorts = resorts.filter((resort) =>
+        (resort.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            resort.town.toLowerCase().includes(searchTerm.toLowerCase())) &&
+        ALLOWED_TOWNS.includes(resort.town) &&
+        resort.priceAmount >= filters.minPrice &&
+        resort.priceAmount <= filters.maxPrice &&
+        resort.roomsCount >= filters.rooms &&
+        resort.bedsCount >= filters.beds &&
+        selectedAmenities.every((amenity) =>
+            resort.amenities.some((propertyAmenity) =>
+                String(propertyAmenity).trim().toLowerCase() === amenity.trim().toLowerCase()
+            )
+        )
     )
 
     return (
@@ -153,7 +194,11 @@ function Destinations() {
                         contentClassName="bg-transparent border-0"
                     >
                         <Modal.Body className="p-0">
-                            <FilterN onClose={() => setShowFilter(false)} />
+                            <FilterN
+                                appliedFilters={filters}
+                                onApply={setFilters}
+                                onClose={() => setShowFilter(false)}
+                            />
                         </Modal.Body>
                     </Modal>
                 </div>
@@ -161,6 +206,8 @@ function Destinations() {
                 <div className="mx-3">
                     {loading ? (
                         <div className="text-center py-5 text-white">Loading destinations...</div>
+                    ) : filteredResorts.length === 0 ? (
+                        <div className="text-center py-5 text-white">No destinations match your search and filters.</div>
                     ) : (
                         ALLOWED_TOWNS.map((town) => {
                             const townPlaces = filteredResorts.filter((r) => r.town === town)

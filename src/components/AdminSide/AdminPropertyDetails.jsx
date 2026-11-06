@@ -3,6 +3,7 @@ import { doc, updateDoc, getDoc, collection, addDoc, serverTimestamp } from 'fir
 import { db } from '../../firebase'
 import resortImage from '../../images/Bustos Hero.png'
 import { HostAddProperty } from '../../pages/HostAddProperty.jsx'
+import { resolveUploadUrl } from '../../utils/uploads'
 
 export function AdminPropertyDetails({
     property,
@@ -38,7 +39,7 @@ export function AdminPropertyDetails({
 
     const displayStatus = currentProperty.status || 'Pending'
     
-    const propertyImage = currentProperty?.image || 
+    const propertyImage = resolveUploadUrl(currentProperty?.image ||
         currentProperty?.imageUrl || 
         currentProperty?.images?.[0] || 
         currentProperty?.mediaPhotos?.cover?.[0]?.preview || 
@@ -46,8 +47,8 @@ export function AdminPropertyDetails({
         currentProperty?.mediaPhotos?.cover?.[0]?.url ||
         currentProperty?.media?.cover?.[0]?.preview || 
         currentProperty?.media?.cover?.[0]?.localPath || 
-        currentProperty?.media?.cover?.[0]?.url ||
-        resortImage
+        currentProperty?.media?.cover?.[0]?.url
+    ) || resortImage
 
     const statusLower = displayStatus.toLowerCase()
     const isApproved = statusLower === 'approved' || statusLower === 'active'

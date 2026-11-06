@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../../firebase'
 import resortImage from '../../images/Bustos Hero.png'
+import { resolveUploadUrl } from '../../utils/uploads'
 
 const filters = ['All', 'Pending', 'Approved', 'Hidden']
 
@@ -122,7 +123,13 @@ export function AdminProperties({ onViewDetails }) {
                                     ? 'active' 
                                     : ''
 
-                        const propertyImage = property.image || property.imageUrl || (property.images && property.images[0]) || resortImage
+                        const propertyImage = resolveUploadUrl(
+                            property.image ||
+                            property.imageUrl ||
+                            property.images?.[0] ||
+                            property.mediaPhotos?.cover?.[0]?.localPath ||
+                            property.mediaPhotos?.cover?.[0]?.preview
+                        ) || resortImage
                         const propertyCategory = property.category || property.type || null
                         const amenitiesList = Array.isArray(property.amenities) ? property.amenities : []
 

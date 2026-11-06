@@ -4,22 +4,31 @@ const express = require('express')
 const cors = require('cors')
 const Stripe = require('stripe')
 const multer = require('multer')
+const { applicationDefault, getApps, initializeApp } = require('firebase-admin/app')
+const { FieldValue, getFirestore } = require('firebase-admin/firestore')
 const path = require('path')
 const fs = require('fs')
-const admin = require('firebase-admin')
 
-if (!admin.apps.length) {
+if (!getApps().length) {
     try {
-        admin.initializeApp({
-            credential: admin.credential.applicationDefault()
+        initializeApp({
+            credential: applicationDefault()
         })
-    } catch (e) {
+    } catch (error) {
+        console.error('Firebase Admin initialization failed:', error.message)
     }
 }
 
 const app = express()
 const PORT = process.env.PORT || 4242
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173'
+const frontendUrl = new URL(FRONTEND_URL)
+const allowedFrontendOrigins = new Set([frontendUrl.origin])
+
+if (frontendUrl.hostname === 'localhost' || frontendUrl.hostname === '127.0.0.1') {
+    frontendUrl.hostname = frontendUrl.hostname === 'localhost' ? '127.0.0.1' : 'localhost'
+    allowedFrontendOrigins.add(frontendUrl.origin)
+}
 
 if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is missing from server/.env')
@@ -27,7 +36,11 @@ if (!process.env.STRIPE_SECRET_KEY) {
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
-app.use(cors({ origin: FRONTEND_URL }))
+app.use(cors({
+    origin: (origin, callback) => {
+        callback(null, !origin || allowedFrontendOrigins.has(origin))
+    },
+}))
 app.use(express.json())
 
 const uploadDir = path.join(__dirname, '../public/uploads')
@@ -80,13 +93,13 @@ app.put('/api/properties/:id', async (req, res) => {
             return res.status(400).json({ error: 'Property ID is required.' })
         }
 
-        if (admin.apps.length) {
-            const db = admin.firestore()
+        if (getApps().length) {
+            const db = getFirestore()
             const propertyRef = db.collection('properties').doc(id)
             
             await propertyRef.set({
                 ...updatedData,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                updatedAt: FieldValue.serverTimestamp()
             }, { merge: true })
 
             return res.json({ message: 'Property updated successfully on server.', id })

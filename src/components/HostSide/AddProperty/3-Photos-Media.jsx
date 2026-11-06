@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { resolveUploadUrl, uploadFile } from '../../../utils/uploads'
 
 const photoGroups = [
     { id: 'cover', title: 'Cover Photo', multiple: false },
@@ -18,7 +19,8 @@ const getSavedPhotos = (property) => {
                 savedPhotos.map((photo) => ({
                     id: photo.id,
                     file: { name: photo.name, size: photo.size },
-                    preview: photo.preview,
+                    preview: resolveUploadUrl(photo.preview || photo.localPath),
+                    localPath: resolveUploadUrl(photo.localPath || photo.preview),
                 })),
             ])
         )
@@ -26,28 +28,27 @@ const getSavedPhotos = (property) => {
 
     return {
         ...(property?.image
-            ? { cover: [{ id: 'saved-cover', file: { name: 'Cover photo', size: 0 }, preview: property.image }] }
+            ? {
+                cover: [{
+                    id: 'saved-cover',
+                    file: { name: 'Cover photo', size: 0 },
+                    preview: resolveUploadUrl(property.image),
+                    localPath: resolveUploadUrl(property.image),
+                }],
+            }
             : {}),
         ...(property?.galleryImages?.length
             ? {
                 gallery: property.galleryImages.map((preview, index) => ({
                     id: `saved-gallery-${index}`,
                     file: { name: `Gallery photo ${index + 1}`, size: 0 },
-                    preview,
+                    preview: resolveUploadUrl(preview),
+                    localPath: resolveUploadUrl(preview),
                 })),
             }
             : {}),
     }
 }
-
-const readPhoto = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => typeof reader.result === 'string'
-        ? resolve(reader.result)
-        : reject(new Error('Could not create a preview for the selected property photo.'))
-    reader.onerror = () => reject(reader.error || new Error('Could not read the selected property photo.'))
-    reader.readAsDataURL(file)
-})
 
 export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange, editNavigation }) => {
     const [photos, setPhotos] = useState(() => getSavedPhotos(property))
@@ -61,35 +62,25 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
         }
     }, [])
 
-    const uploadFileToServer = async (file) => {
-        const formData = new FormData()
-        formData.append('file', file)
-        try {
-            const response = await fetch('http://localhost:4242/api/upload', {
-                method: 'POST',
-                body: formData,
-            })
-            const data = await response.json()
-            return data.filePath || `/uploads/${file.name}`
-        } catch (error) {
-            console.error('Local upload failed:', error)
-            return `/uploads/${file.name}`
-        }
-    }
-
     const addPhotos = async (group, fileList) => {
         const filesArray = Array.from(fileList)
         const selectedFiles = []
 
-        for (let i = 0; i < filesArray.length; i++) {
-            const file = filesArray[i]
-            await uploadFileToServer(file)
-            const objectUrl = URL.createObjectURL(file)
-            selectedFiles.push({
-                id: `${file.name}-${file.lastModified}-${Math.random()}`,
-                file,
-                preview: objectUrl,
-            })
+        try {
+            for (const file of filesArray) {
+                const localPath = await uploadFile(file)
+                const objectUrl = URL.createObjectURL(file)
+                selectedFiles.push({
+                    id: `${file.name}-${file.lastModified}-${Math.random()}`,
+                    file,
+                    preview: objectUrl,
+                    localPath,
+                })
+            }
+        } catch (error) {
+            selectedFiles.forEach((photo) => URL.revokeObjectURL(photo.preview))
+            setValidationError(error.message || 'Could not upload property photos.')
+            return
         }
 
         selectedFiles.forEach((photo) => objectUrls.current.add(photo.preview))
@@ -111,21 +102,17 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
         setPhotos(updatedPhotos)
         if (group.id === 'cover') setValidationError('')
 
-        Promise.all(updatedPhotos[group.id].map(async (photo) => ({
+        const savedPhotos = updatedPhotos[group.id].map((photo) => ({
             id: photo.id,
             name: photo.file.name,
             size: photo.file.size,
-            preview: photo.file instanceof File
-                ? await readPhoto(photo.file)
-                : photo.preview,
-        })))
-            .then((savedPhotos) => {
-                const changes = { mediaPhotos: { [group.id]: savedPhotos } }
-                if (group.id === 'cover') changes.image = savedPhotos[0]?.preview || ''
-                if (group.id === 'gallery') changes.galleryImages = savedPhotos.map((photo) => photo.preview)
-                onPropertyChange?.(changes)
-            })
-            .catch((error) => console.error('Could not save property photo previews:', error))
+            preview: photo.localPath || photo.preview,
+            localPath: photo.localPath || photo.preview,
+        }))
+        const changes = { mediaPhotos: { [group.id]: savedPhotos } }
+        if (group.id === 'cover') changes.image = savedPhotos[0]?.preview || ''
+        if (group.id === 'gallery') changes.galleryImages = savedPhotos.map((photo) => photo.preview)
+        onPropertyChange?.(changes)
     }
 
     const removePhoto = (groupId, photoId) => {
@@ -142,11 +129,12 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
             setValidationError('A cover photo is required. Upload one before continuing.')
         }
 
-        const savedPhotos = remainingPhotos.map(({ id, file, preview }) => ({
+        const savedPhotos = remainingPhotos.map(({ id, file, preview, localPath }) => ({
             id,
             name: file.name,
             size: file.size,
-            preview,
+            preview: localPath || preview,
+            localPath: localPath || preview,
         }))
         const changes = { mediaPhotos: { [groupId]: savedPhotos } }
         if (groupId === 'cover') changes.image = savedPhotos[0]?.preview || ''

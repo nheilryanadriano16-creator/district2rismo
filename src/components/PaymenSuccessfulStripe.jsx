@@ -24,10 +24,9 @@ export default function PaymenSuccessfulStripe({ show, onHide, onReturnHome }) {
                 </p>
                 <div className="d-flex flex-column flex-sm-row justify-content-center gap-2">
                     <button type="button" className="btn payment-success-closeButtonN" onClick={onHide}>Close</button>
-                    <Link to="/" onClick={onReturnHome} className="btn payment-success-homeButtonN">Return Home</Link>
+                    <Link to="/" state={{ allowHomePage: true }} onClick={onReturnHome} className="btn payment-success-homeButtonN">Return Home</Link>
                 </div>
             </Modal.Body>
         </Modal>
     )
 }
-

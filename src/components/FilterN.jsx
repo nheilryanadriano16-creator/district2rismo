@@ -8,14 +8,22 @@ const filterGroupsN = [
   { title: 'Group & Event Facilities', key: 'events', choices: ['Function Hall', 'Covered Pavilion', 'Outdoor Event Space', 'Tables and Chairs', 'Basketball Court', 'Volleyball Court'] },
   { title: 'Convenience & Safety', key: 'safety', choices: ['Private Parking', 'Caretaker / On-Site Staff', 'CCTV', 'Pet-Friendly Area'] },
 ]
-export const FilterN = ({ onClose }) => {
-  const [priceN, setPriceN] = useState(25000)
-  const [maxPriceDraftN, setMaxPriceDraftN] = useState('25000')
-  const [minPriceN, setMinPriceN] = useState(200)
-  const [minPriceDraftN, setMinPriceDraftN] = useState('200')
-  const [choicesN, setChoicesN] = useState({})
-  const [roomsN, setRoomsN] = useState(0)
-  const [bedsN, setBedsN] = useState(0)
+const defaultFiltersN = {
+  minPrice: 200,
+  maxPrice: 25000,
+  amenities: {},
+  rooms: 0,
+  beds: 0,
+}
+
+export const FilterN = ({ onClose, onApply, appliedFilters = defaultFiltersN }) => {
+  const [priceN, setPriceN] = useState(appliedFilters.maxPrice)
+  const [maxPriceDraftN, setMaxPriceDraftN] = useState(String(appliedFilters.maxPrice))
+  const [minPriceN, setMinPriceN] = useState(appliedFilters.minPrice)
+  const [minPriceDraftN, setMinPriceDraftN] = useState(String(appliedFilters.minPrice))
+  const [choicesN, setChoicesN] = useState(appliedFilters.amenities)
+  const [roomsN, setRoomsN] = useState(appliedFilters.rooms)
+  const [bedsN, setBedsN] = useState(appliedFilters.beds)
 
   const commitMinimumPriceN = () => {
     const enteredPriceN = Number(minPriceDraftN)
@@ -44,13 +52,39 @@ export const FilterN = ({ onClose }) => {
   }
 
   const clearAllN = () => {
-    setPriceN(25000)
-    setMaxPriceDraftN('25000')
-    setMinPriceN(200)
-    setMinPriceDraftN('200')
-    setChoicesN({})
-    setRoomsN(0)
-    setBedsN(0)
+    setPriceN(defaultFiltersN.maxPrice)
+    setMaxPriceDraftN(String(defaultFiltersN.maxPrice))
+    setMinPriceN(defaultFiltersN.minPrice)
+    setMinPriceDraftN(String(defaultFiltersN.minPrice))
+    setChoicesN(defaultFiltersN.amenities)
+    setRoomsN(defaultFiltersN.rooms)
+    setBedsN(defaultFiltersN.beds)
+  }
+
+  const applyFiltersN = () => {
+    const enteredMinN = Number(minPriceDraftN)
+    const appliedMinN = Math.min(
+      priceN,
+      Math.max(200, Number.isFinite(enteredMinN) ? enteredMinN : 200)
+    )
+    const enteredMaxN = Number(maxPriceDraftN)
+    const appliedMaxN = Math.max(
+      appliedMinN,
+      Math.min(Number.isFinite(enteredMaxN) ? enteredMaxN : appliedMinN, 50000)
+    )
+
+    setMinPriceN(appliedMinN)
+    setMinPriceDraftN(String(appliedMinN))
+    setPriceN(appliedMaxN)
+    setMaxPriceDraftN(String(appliedMaxN))
+    onApply?.({
+      minPrice: appliedMinN,
+      maxPrice: appliedMaxN,
+      amenities: choicesN,
+      rooms: roomsN,
+      beds: bedsN,
+    })
+    onClose?.()
   }
 
   return (
@@ -151,9 +185,8 @@ export const FilterN = ({ onClose }) => {
       </div>
       <footer className="filter-footerN d-flex justify-content-between align-items-center border-top">
         <button className="btn btn-link fw-semibold p-0" type="button" onClick={clearAllN}>Clear all</button>
-        <button className="btn btn-dark rounded-3 px-4 py-2 fw-semibold" type="button">Show places</button>
+        <button className="btn btn-dark rounded-3 px-4 py-2 fw-semibold" type="button" onClick={applyFiltersN}>Show places</button>
       </footer>
     </div>
   )
 }
-

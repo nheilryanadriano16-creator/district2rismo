@@ -7,6 +7,7 @@ import CottageCard from '../components/StayCard.jsx'
 import Footer from '../components/Footer.jsx'
 import BookingCard from '../components/BookingCard.jsx'
 import resortImage from '../images/Bustos Hero.png'
+import { resolveUploadUrl } from '../utils/uploads'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 
@@ -119,7 +120,7 @@ function PlaceDetails() {
     const name = property?.name || 'Untitled Property'
     const location = property?.location || property?.address || (property?.municipality ? `${property.municipality}, Bulacan` : 'Location Not Specified')
     
-    const propertyImage = property?.image || 
+    const propertyImage = resolveUploadUrl(property?.image ||
         property?.imageUrl || 
         property?.images?.[0] || 
         property?.mediaPhotos?.cover?.[0]?.preview || 
@@ -127,16 +128,16 @@ function PlaceDetails() {
         property?.mediaPhotos?.cover?.[0]?.url ||
         property?.media?.cover?.[0]?.preview || 
         property?.media?.cover?.[0]?.localPath || 
-        property?.media?.cover?.[0]?.url ||
-        resortImage
+        property?.media?.cover?.[0]?.url
+    ) || resortImage
 
     const rawGallery = property?.galleryImages || 
         property?.images || 
         property?.mediaPhotos?.gallery || 
         property?.media?.gallery || []
 
-    const galleryImages = rawGallery.map(item => 
-        typeof item === 'string' ? item : (item?.preview || item?.localPath || item?.url || '')
+    const galleryImages = rawGallery.map(item =>
+        resolveUploadUrl(typeof item === 'string' ? item : (item?.preview || item?.localPath || item?.url || ''))
     ).filter(Boolean)
 
     const features = property?.amenities?.length
@@ -149,8 +150,8 @@ function PlaceDetails() {
     const rawBedrooms = property?.bedrooms || property?.cottages || []
     const bedrooms = rawBedrooms.map(bed => ({
         ...bed,
-        photo: bed.photo || bed.image || bed.localPath || bed.preview || bed.url || 
-               (Array.isArray(bed.photos) ? (bed.photos[0]?.preview || bed.photos[0]?.localPath || bed.photos[0]?.url) : null)
+        photo: resolveUploadUrl(bed.photo || bed.image || bed.localPath || bed.preview || bed.url ||
+               (Array.isArray(bed.photos) ? (bed.photos[0]?.preview || bed.photos[0]?.localPath || bed.photos[0]?.url) : null))
     }))
 
     const tours = property?.tourSettings
