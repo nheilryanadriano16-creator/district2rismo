@@ -30,13 +30,7 @@ export const BurgerOptionN = ({ darkMode = false, onToggleDarkMode, onNotificati
 
                 <Dropdown.Divider className="border-warning opacity-50" />
 
-                <Dropdown.Item as="button" onClick={onListProperty}>
-                    <i className="bi bi-house-add me-2" aria-hidden="true" />
-                    List your property
-                </Dropdown.Item>
-
-                <Dropdown.Divider className="border-warning opacity-50" />
-
+                
                 {currentUser ? (
                     <Dropdown.Item as="button" onClick={handleLogout} className="text-danger fw-semibold">
                         <i className="bi bi-box-arrow-right me-2" aria-hidden="true" />

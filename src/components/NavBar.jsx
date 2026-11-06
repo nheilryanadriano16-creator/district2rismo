@@ -52,8 +52,6 @@ function NavBar() {
         }
     }
 
-
-
     return (
         <div>
             <header className={`site-header container-fluid py-4 d-flex justify-content-between${isScrolled ? ' is-scrolled' : ''}`}>
@@ -88,8 +86,24 @@ function NavBar() {
                     <BurgerOptionN
                         darkMode={darkMode}
                         onToggleDarkMode={setDarkMode}
-                        onNotifications={() => currentUser && userRole === 'host' ? navigate('/host') : setShowLogin(true)}
-                        onHelpCenter={() => console.log('Help Center clicked')}
+                        onNotifications={() => {
+                            if (currentUser && userRole === 'host') {
+                                navigate('/host', { state: { section: 'Notifications' } })
+                            } else if (currentUser && userRole === 'customer') {
+                                navigate('/account', { state: { section: 'Notifications' } })
+                            } else {
+                                setShowLogin(true)
+                            }
+                        }}
+                        onHelpCenter={() => {
+                            if (currentUser && userRole === 'host') {
+                                navigate('/host', { state: { section: 'Help' } })
+                            } else if (currentUser && userRole === 'customer') {
+                                navigate('/account', { state: { section: 'Help' } })
+                            } else {
+                                setShowLogin(true)
+                            }
+                        }}
                         onListProperty={() => currentUser && userRole === 'host' ? navigate('/host') : setShowLogin(true)}
                         onLogin={() => setShowLogin(true)}
                     />
@@ -130,8 +144,8 @@ function NavBar() {
                                 )}
                                 <div className="d-flex gap-2">
                                     <Link
-                                        to="/account"
-                                        className="btn nav-profile-secondaryN w-50 fw-bold text-center"
+                                        to={userRole === 'host' ? '/host/profile' : userRole === 'admin' ? '/admin/profile' : '/account'}
+                                        className="btn nav-profile-secondaryN w-50 fw-bold"
                                         onClick={() => setShowUserModal(false)}
                                     >
                                         Manage Profile

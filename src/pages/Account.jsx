@@ -1,4 +1,5 @@
-﻿import { useState } from 'react'
+﻿import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import NavBarDetails from '../components/NavBarDetails.jsx'
 import Footer from '../components/Footer.jsx'
 import { SideBarN } from '../components/Account/SideBarN.jsx'
@@ -19,8 +20,20 @@ const mobileTitles = {
 }
 
 function Account() {
-    const [selectedSection, setSelectedSection] = useState('Profile')
-    const [mobileSectionOpen, setMobileSectionOpen] = useState(false)
+    const location = useLocation()
+    const requestedSection = location.state?.section
+
+    const [selectedSection, setSelectedSection] = useState(requestedSection || 'Profile')
+    const [mobileSectionOpen, setMobileSectionOpen] = useState(
+        requestedSection === 'Notifications'
+    )
+
+    useEffect(() => {
+        if (location.state?.section) {
+            setSelectedSection(location.state.section)
+            setMobileSectionOpen(true)
+        }
+    }, [location.state])
     const unreadNotificationCount = temporaryNotifications.length
 
     const handleSectionSelect = (section) => {
@@ -34,7 +47,11 @@ function Account() {
             <main className="account-mainN container-fluid px-0">
                 <div className="row g-0">
                     <div className={`col-12 col-lg-3 ${mobileSectionOpen ? 'd-none d-lg-block' : ''}`}>
-                        <SideBarN onSelect={handleSectionSelect} notificationCount={unreadNotificationCount} />
+                        <SideBarN
+                            activeSection={selectedSection}
+                            onSelect={handleSectionSelect}
+                            notificationCount={unreadNotificationCount}
+                        />
                     </div>
                     <div className={`col-12 col-lg-9 ${mobileSectionOpen ? '' : 'd-none d-lg-block'}`}>
                         {mobileSectionOpen && (
@@ -74,4 +91,3 @@ function Account() {
 }
 
 export default Account
-

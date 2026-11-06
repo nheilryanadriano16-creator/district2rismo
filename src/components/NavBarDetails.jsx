@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Logo2Rismo from '../images/2Rismo Logo.png'
 import { LoginN } from './auth/LoginN.jsx'
 import Modal from 'react-bootstrap/Modal'
@@ -14,6 +14,7 @@ function NavBar() {
     const [isLogoVisible, setIsLogoVisible] = useState(true)
 
     const { currentUser, userData, userRole, logout } = useAuth()
+    const location = useLocation()
 
     const profileInitial = [
         userData?.firstName,
@@ -83,14 +84,32 @@ function NavBar() {
                             </svg>
                         )}
                     </button>
-                    <BurgerOptionN
-                        darkMode={darkMode}
-                        onToggleDarkMode={setDarkMode}
-                        onNotifications={() => currentUser && userRole === 'host' ? navigate('/host') : setShowLogin(true)}
-                        onHelpCenter={() => console.log('Help Center clicked')}
-                        onListProperty={() => currentUser && userRole === 'host' ? navigate('/host') : setShowLogin(true)}
-                        onLogin={() => setShowLogin(true)}
-                    />
+                    {location.pathname !== '/account' && (
+                        <BurgerOptionN
+                            darkMode={darkMode}
+                            onToggleDarkMode={setDarkMode}
+                            onNotifications={() => {
+                                if (currentUser && userRole === 'host') {
+                                    navigate('/host', { state: { section: 'Notifications' } })
+                                } else if (currentUser && userRole === 'customer') {
+                                    navigate('/account', { state: { section: 'Notifications' } })
+                                } else {
+                                    setShowLogin(true)
+                                }
+                            }}
+                            onHelpCenter={() => {
+                                if (currentUser && userRole === 'host') {
+                                    navigate('/host', { state: { section: 'Help' } })
+                                } else if (currentUser && userRole === 'customer') {
+                                    navigate('/account', { state: { section: 'Help' } })
+                                } else {
+                                    setShowLogin(true)
+                                }
+                            }}
+                            onListProperty={() => currentUser && userRole === 'host' ? navigate('/host') : setShowLogin(true)}
+                            onLogin={() => setShowLogin(true)}
+                        />
+                    )}
                 </div>
             </header>
 
@@ -126,14 +145,7 @@ function NavBar() {
                                 {userRole === 'admin' && (
                                     <Link to="/admin" className="btn nav-profile-primaryN w-100 fw-bold" onClick={() => setShowUserModal(false)}>Admin Dashboard</Link>
                                 )}
-                                <div className="d-flex gap-2">
-                                    <Link
-                                        to={userRole === 'host' ? '/host/profile' : userRole === 'admin' ? '/admin/profile' : '/account'}
-                                        className="btn nav-profile-secondaryN w-50 fw-bold"
-                                        onClick={() => setShowUserModal(false)}
-                                    >
-                                        Manage Profile
-                                    </Link>
+                                <div className="d-flex justify-content-center">
                                     <button className="btn nav-profile-logoutN w-50" onClick={() => { logout(); setShowUserModal(false); }}>Log Out</button>
                                 </div>
                             </div>
