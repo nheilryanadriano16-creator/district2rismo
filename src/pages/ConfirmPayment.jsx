@@ -106,6 +106,7 @@ function ConfirmPayment() {
                 userId: currentUser?.uid || 'guest',
                 userEmail: currentUser?.email || 'guest',
                 propertyId: bookingData?.property?.id || null,
+                hostId: bookingData?.property?.ownerId || bookingData?.property?.hostId || bookingData?.property?.ownerUid || null,
                 propertyName: bookingData?.property?.name || bookingData?.resort?.name || 'Resort Property',
                 date: bookingData?.date,
                 session: bookingData?.session,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { fetchHostProperties, fetchHostReservations, formatHostDate } from '../../utils/hostData'
+import { fetchHostProperties, fetchHostBookings, formatHostDate } from '../../utils/hostData'
 
 export const HostDashboardN = ({ onViewBookings }) => {
     const { currentUser } = useAuth()
@@ -18,7 +18,7 @@ export const HostDashboardN = ({ onViewBookings }) => {
             if (!currentUser?.uid) return
             try {
                 const properties = await fetchHostProperties(currentUser.uid, { email: currentUser.email })
-                const reservations = await fetchHostReservations(currentUser.uid, properties)
+                const reservations = await fetchHostBookings(currentUser.uid, properties)
                 const now = new Date()
                 const monthBookings = reservations.filter((booking) => {
                     const raw = booking.startDate || booking.date
@@ -27,7 +27,11 @@ export const HostDashboardN = ({ onViewBookings }) => {
                         : null
                     return date && !Number.isNaN(date.getTime()) && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
                 })
-                const pending = reservations.filter((booking) => booking.filterStatus === 'Pending')
+                const pending = reservations.filter((booking) =>
+                    !['confirmed', 'accepted', 'rejected', 'cancelled', 'canceled'].includes(
+                        String(booking.status || 'Pending').toLowerCase()
+                    )
+                )
                 if (!isMounted) return
                 setStats([
                     { label: <>Total Bookings<br />(This Month)</>, value: String(monthBookings.length), highlight: true },
@@ -36,10 +40,10 @@ export const HostDashboardN = ({ onViewBookings }) => {
                 ])
                 setRecentBookings(reservations.slice(0, 5).map((booking) => ({
                     id: booking.id,
-                    guest: booking.guest,
-                    resort: booking.resort,
+                    guest: booking.userEmail || booking.guest || 'Guest',
+                    resort: booking.propertyName || booking.property?.name || booking.resort || 'Resort Property',
                     date: formatHostDate(booking.date),
-                    status: booking.status,
+                    status: booking.status || 'Pending',
                 })))
             } catch (error) {
                 console.error('Error loading host dashboard:', error)

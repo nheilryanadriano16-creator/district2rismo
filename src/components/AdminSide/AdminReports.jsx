@@ -4,7 +4,9 @@ import { db } from '../../firebase'
 
 export function AdminReports() {
     const [reservations, setReservations] = useState([])
+    const [properties, setProperties] = useState([])
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState('')
     const [property, setProperty] = useState('')
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
@@ -13,21 +15,41 @@ export function AdminReports() {
         async function fetchReservations() {
             try {
                 setLoading(true)
-                const querySnapshot = await getDocs(collection(db, 'bookings'))
-                const loadedReservations = querySnapshot.docs.map(docItem => {
+                setError('')
+                const [bookingsSnapshot, propertiesSnapshot] = await Promise.all([
+                    getDocs(collection(db, 'bookings')),
+                    getDocs(collection(db, 'properties')),
+                ])
+                const loadedProperties = propertiesSnapshot.docs.map((docItem) => ({
+                    id: docItem.id,
+                    ...docItem.data(),
+                }))
+                const loadedReservations = bookingsSnapshot.docs.map((docItem) => {
                     const data = docItem.data()
+                    const propertyData = data.property && typeof data.property === 'object'
+                        ? data.property
+                        : {}
+                    const rawDate = data.date || data.startDate || ''
+                    const date = typeof rawDate?.toDate === 'function'
+                        ? rawDate.toDate().toISOString().slice(0, 10)
+                        : typeof rawDate === 'string'
+                            ? rawDate.slice(0, 10)
+                            : ''
                     return {
-                        id: docItem.id,
-                        property: data.propertyName || data.resort || data.property || 'Resort Property',
-                        date: data.date || data.startDate || '',
-                        status: data.status || 'Pending',
-                        totalAmount: Number(data.total || data.totalAmount || data.amountPaid || 0),
                         ...data,
+                        id: docItem.id,
+                        propertyId: data.propertyId || data.propertyUid || data.placeId || data.listingId || data.resortId || propertyData.id || '',
+                        propertyName: data.propertyName || data.resortName || (typeof data.resort === 'string' ? data.resort : '') || (typeof data.property === 'string' ? data.property : '') || propertyData.name || 'Resort Property',
+                        date,
+                        status: data.status || 'Pending',
+                        totalAmount: Number(String(data.total || data.totalAmount || data.amountPaid || 0).replace(/[^\d.-]/g, '')) || 0,
                     }
                 })
                 setReservations(loadedReservations)
+                setProperties(loadedProperties)
             } catch (err) {
                 console.error('Error fetching bookings for reports:', err)
+                setError('Could not load bookings and properties. Please try again.')
             } finally {
                 setLoading(false)
             }
@@ -35,10 +57,35 @@ export function AdminReports() {
         fetchReservations()
     }, [])
 
-    const properties = [...new Set(reservations.map((item) => item.property).filter(Boolean))]
+    const propertyOptions = properties.map((item) => ({
+        value: item.id,
+        name: item.name || item.propertyName || 'Unnamed Property',
+        ids: [item.id, item.propertyId].filter(Boolean),
+        normalizedName: (item.name || item.propertyName || '').trim().toLowerCase(),
+    }))
+
+    reservations.forEach((item) => {
+        const alreadyListed = propertyOptions.some((option) =>
+            (item.propertyId && option.ids.includes(item.propertyId)) ||
+            (!item.propertyId && option.normalizedName === item.propertyName.trim().toLowerCase())
+        )
+        if (!alreadyListed) {
+            const value = item.propertyId || `name:${item.propertyName.trim().toLowerCase()}`
+            propertyOptions.push({
+                value,
+                name: item.propertyName,
+                ids: item.propertyId ? [item.propertyId] : [],
+                normalizedName: item.propertyName.trim().toLowerCase(),
+            })
+        }
+    })
 
     const filteredReservations = reservations.filter((item) => {
-        const matchesProperty = !property || item.property === property
+        const selected = propertyOptions.find((option) => option.value === property)
+        const matchesProperty = !selected ||
+            (item.propertyId
+                ? selected.ids.includes(item.propertyId)
+                : selected.normalizedName === item.propertyName.trim().toLowerCase())
         const matchesStartDate = !startDate || (item.date && item.date >= startDate)
         const matchesEndDate = !endDate || (item.date && item.date <= endDate)
         return matchesProperty && matchesStartDate && matchesEndDate
@@ -83,7 +130,7 @@ export function AdminReports() {
     const exportReport = () => {
         const rows = [
             ['Report', 'Reports and Analytics'],
-            ['Property', property || 'All Property'],
+            ['Property', propertyOptions.find((option) => option.value === property)?.name || 'All Properties'],
             ['Start Date', startDate || 'All Time'],
             ['End Date', endDate || 'All Time'],
             [],
@@ -126,10 +173,10 @@ export function AdminReports() {
                         value={property}
                         onChange={(event) => setProperty(event.target.value)}
                     >
-                        <option value="">All Property</option>
-                        {properties.map((prop) => (
-                            <option key={prop} value={prop}>
-                                {prop}
+                        <option value="">All Properties</option>
+                        {propertyOptions.map((prop) => (
+                            <option key={prop.value} value={prop.value}>
+                                {prop.name}
                             </option>
                         ))}
                     </select>
@@ -160,6 +207,8 @@ export function AdminReports() {
 
             {loading ? (
                 <p className="text-center py-4">Loading reports and analytics...</p>
+            ) : error ? (
+                <p className="text-center text-danger py-4" role="alert">{error}</p>
             ) : (
                 <>
                     <div className="row g-3 mb-3">

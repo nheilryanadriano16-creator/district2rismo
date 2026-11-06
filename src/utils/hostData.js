@@ -120,10 +120,10 @@ function ownerNameFrom(userData = {}) {
 
 function belongsToHost(record, uid, identity = {}) {
   if (!record) return false
-  const ids = [record.ownerId, record.ownerUid, record.hostId, record.userId, record.createdBy]
+  const ids = [record.ownerId, record.ownerUid, record.hostId, record.createdBy]
   if (uid && ids.includes(uid)) return true
   const emails = [identity.email, identity.ownerEmail].filter(Boolean)
-  if (emails.length && emails.some((email) => [record.ownerEmail, record.email, record.hostEmail].includes(email))) {
+  if (emails.length && emails.some((email) => [record.ownerEmail, record.hostEmail].includes(email))) {
     return true
   }
   return false
@@ -358,6 +358,33 @@ export async function fetchHostReservations(uid, properties = []) {
     .filter((reservation) => belongsToHost(reservation, uid, identity) || matchesHostProperty(reservation, properties))
     .map(mapReservation)
     .sort((a, b) => compareByDateDesc(a.startDate || a.date, b.startDate || b.date))
+}
+
+export async function fetchHostBookings(uid, properties = []) {
+  if (!uid) return []
+
+  const bookings = await readCollection('bookings')
+  const propertyIds = new Set(properties.map((property) => property.id).filter(Boolean))
+  const propertyNames = new Set(properties.map((property) => normalizeName(property.name)).filter(Boolean))
+
+  return bookings.filter((booking) => {
+    if ([booking.hostId, booking.ownerId, booking.ownerUid].includes(uid)) return true
+
+    const bookingPropertyId =
+      booking.propertyId ||
+      booking.propertyUid ||
+      booking.placeId ||
+      booking.listingId ||
+      booking.resortId ||
+      booking.property?.id
+
+    if (bookingPropertyId) return propertyIds.has(bookingPropertyId)
+
+    const bookingPropertyName = normalizeName(
+      booking.propertyName || booking.property?.name || booking.resortName || booking.resort
+    )
+    return propertyNames.has(bookingPropertyName)
+  })
 }
 
 export async function updateHostReservationStatus(reservation, status, uid) {

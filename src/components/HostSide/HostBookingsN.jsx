@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { collection, getDocs } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { fetchHostBookings, fetchHostProperties } from '../../utils/hostData'
 
 const filters = ['All', 'Pending', 'Confirmed', 'Rejected']
 
@@ -27,31 +26,36 @@ export const HostBookingsN = ({ onViewBooking }) => {
     const [selectedProperty, setSelectedProperty] = useState('')
     const [selectedBooking, setSelectedBooking] = useState(null)
     const [selectedDate, setSelectedDate] = useState('')
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         let isMounted = true
 
         async function loadBookings() {
-            if (!currentUser?.uid) return
+            if (!currentUser?.uid) {
+                setBookings([])
+                setProperties([])
+                setSelectedBooking(null)
+                setSelectedDate('')
+                setLoading(false)
+                return
+            }
             try {
-                const querySnapshot = await getDocs(collection(db, 'bookings'))
-                const loadedBookings = querySnapshot.docs.map(doc => {
-                    const data = doc.data()
-                    return {
-                        id: doc.id,
-                        guest: data.userEmail || data.guest || 'Guest',
-                        resort: data.propertyName || data.resort || 'Resort Property',
-                        date: data.date || data.startDate || '',
-                        guests: data.guestsCount || data.guests || 1,
-                        status: data.status || 'Pending',
-                        ...data,
-                    }
-                })
+                setLoading(true)
+                const hostProperties = await fetchHostProperties(currentUser.uid, { email: currentUser.email })
+                const hostBookings = await fetchHostBookings(currentUser.uid, hostProperties)
+                const loadedBookings = hostBookings.map((data) => ({
+                    ...data,
+                    guest: data.userEmail || data.guest || 'Guest',
+                    resort: data.propertyName || data.property?.name || data.resort || 'Resort Property',
+                    date: data.date || data.startDate || '',
+                    guests: data.guestsCount || data.guests || 1,
+                    status: data.status || 'Pending',
+                }))
 
                 if (!isMounted) return
 
-                const uniqueProps = [...new Set(loadedBookings.map(b => b.resort).filter(Boolean))]
-                setProperties(uniqueProps.map(name => ({ id: name, name })))
+                setProperties(hostProperties)
                 setBookings(loadedBookings)
 
                 const first = loadedBookings[0] || null
@@ -59,6 +63,8 @@ export const HostBookingsN = ({ onViewBooking }) => {
                 setSelectedDate(first?.date || '')
             } catch (error) {
                 console.error('Error loading host bookings:', error)
+            } finally {
+                if (isMounted) setLoading(false)
             }
         }
 
@@ -74,7 +80,11 @@ export const HostBookingsN = ({ onViewBooking }) => {
 
         const matchesFilter = currentFilter === 'all' || bookingStatus === currentFilter
         const matchesSearch = booking.guest.toLowerCase().includes(search.toLowerCase())
-        const matchesProperty = !selectedProperty || booking.resort === selectedProperty
+        const bookingPropertyId = booking.propertyId || booking.property?.id
+        const selectedPropertyName = properties.find((property) => property.id === selectedProperty)?.name
+        const matchesProperty = !selectedProperty ||
+            bookingPropertyId === selectedProperty ||
+            (!bookingPropertyId && booking.resort === selectedPropertyName)
         return matchesFilter && matchesSearch && matchesProperty
     })
 
@@ -98,7 +108,7 @@ export const HostBookingsN = ({ onViewBooking }) => {
                 >
                     <option value="">All Properties</option>
                     {properties.map((property) => (
-                        <option key={property.id} value={property.name}>{property.name}</option>
+                        <option key={property.id} value={property.id}>{property.name}</option>
                     ))}
                 </select>
             </div>
@@ -124,7 +134,8 @@ export const HostBookingsN = ({ onViewBooking }) => {
                         </div>
 
                         <div className="d-flex flex-column gap-1">
-                            {visibleBookings.map((booking) => (
+                            {loading && <p className="small text-secondary mb-0">Loading bookings...</p>}
+                            {!loading && visibleBookings.map((booking) => (
                                 <article key={booking.id} className={`host-booking-rowN d-flex align-items-center gap-2 rounded-3 p-2 ${selectedBooking?.id === booking.id ? 'selected' : ''}`}>
                                     <div className="host-booking-avatarN rounded-circle d-flex align-items-center justify-content-center flex-shrink-0">
                                         {booking.guest.charAt(0).toUpperCase()}
@@ -145,7 +156,7 @@ export const HostBookingsN = ({ onViewBooking }) => {
                                     </button>
                                 </article>
                             ))}
-                            {visibleBookings.length === 0 && <p className="small text-secondary mb-0">No bookings found.</p>}
+                            {!loading && visibleBookings.length === 0 && <p className="small text-secondary mb-0">No bookings found for your properties.</p>}
                         </div>
                     </div>
                 </div>

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AdminNavbar } from './AdminNavbar.jsx'
 import { AdminHostRevoke } from './AdminHostRevoke.jsx'
 import { AdminHostDeactivate } from './AdminHostDeactivate.jsx'
 import { doc, updateDoc, deleteField, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
+import { fetchHostProperties } from '../../utils/hostData'
 
 export function AdminHostDetails({
     host,
@@ -16,6 +17,38 @@ export function AdminHostDetails({
     const [showDeactivate, setShowDeactivate] = useState(false)
     const [loadingVerify, setLoadingVerify] = useState(false)
     const [currentStatus, setCurrentStatus] = useState(host?.status || 'Verified')
+    const [hostProperties, setHostProperties] = useState([])
+    const [loadingProperties, setLoadingProperties] = useState(true)
+    const [propertiesError, setPropertiesError] = useState('')
+
+    useEffect(() => {
+        let isMounted = true
+
+        async function loadHostProperties() {
+            if (!host?.id) {
+                setHostProperties([])
+                setLoadingProperties(false)
+                return
+            }
+
+            setLoadingProperties(true)
+            setPropertiesError('')
+            try {
+                const properties = await fetchHostProperties(host.id, { email: host.email })
+                if (isMounted) setHostProperties(properties)
+            } catch (error) {
+                console.error('Error loading host properties:', error)
+                if (isMounted) setPropertiesError(error.message || "Could not load this host's properties.")
+            } finally {
+                if (isMounted) setLoadingProperties(false)
+            }
+        }
+
+        loadHostProperties()
+        return () => {
+            isMounted = false
+        }
+    }, [host?.id, host?.email])
 
     const displayName = host?.firstName && host?.lastName 
         ? `${host.firstName} ${host.lastName}` 
@@ -23,7 +56,6 @@ export function AdminHostDetails({
 
     const isVerified = currentStatus.toLowerCase() === 'verified'
     const isDeactivated = currentStatus.toLowerCase() === 'deactivated'
-    const hostProperties = host?.properties || []
 
     const handleVerifyHost = async () => {
         if (!host?.id) return
@@ -116,11 +148,19 @@ export function AdminHostDetails({
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {hostProperties.length > 0 ? (
+                                        {loadingProperties ? (
+                                            <tr>
+                                                <td colSpan="3" className="text-white text-center py-3">Loading host properties...</td>
+                                            </tr>
+                                        ) : propertiesError ? (
+                                            <tr>
+                                                <td colSpan="3" className="text-danger text-center py-3">{propertiesError}</td>
+                                            </tr>
+                                        ) : hostProperties.length > 0 ? (
                                             hostProperties.map((property, index) => (
                                                 <tr key={property.id || index}>
                                                     <td className="text-white">{property.name || '—'}</td>
-                                                    <td className="text-white">{property.location || '—'}</td>
+                                                    <td className="text-white">{property.location || property.municipality || property.address || '—'}</td>
                                                     <td className="text-white">{property.status || '—'}</td>
                                                 </tr>
                                             ))

@@ -77,9 +77,10 @@ export const HostBookingDetailsN = ({
                     createdAt: serverTimestamp(),
                 })
 
+                const propertyId = booking.propertyId || booking.property?.id
                 const conflictingQuery = query(
                     collection(db, 'bookings'),
-                    where('propertyName', '==', resort),
+                    where(propertyId ? 'propertyId' : 'propertyName', '==', propertyId || resort),
                     where('date', '==', booking.date || booking.startDate),
                     where('session', '==', sessionType),
                     where('status', '==', 'Pending')
