@@ -18,6 +18,9 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
     const [beds, setBeds] = useState([createBed()])
     const [amenities, setAmenities] = useState([])
     const [editingId, setEditingId] = useState(null)
+    const [validationError, setValidationError] = useState('')
+
+    const bedroomFormStarted = Boolean(editingId || name.trim() || capacity || price || photo)
 
     const uploadFileToServer = async (file) => {
         const formData = new FormData()
@@ -151,6 +154,7 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
             </nav>
 
             <h1 className="h5 fw-bold text-warning mb-3">5. Bedrooms</h1>
+            {validationError && <div className="alert alert-danger py-2" role="alert">{validationError}</div>}
 
             <form onSubmit={saveBedroom}>
                 <div className="row g-4">
@@ -391,6 +395,11 @@ export const Bedrooms = ({ onBack, onNext, onExit, property, onPropertyChange, e
                     type="button"
                     className="btn btn-warning rounded-pill px-5 py-2 host-add-property-nextN"
                     onClick={() => {
+                        if (bedroomFormStarted) {
+                            setValidationError('Add or save the bedroom you started before continuing, or clear the form if you do not want to add it.')
+                            return
+                        }
+                        setValidationError('')
                         onPropertyChange?.({ bedrooms })
                         onNext?.()
                     }}

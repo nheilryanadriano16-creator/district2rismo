@@ -4,11 +4,13 @@ import Logo2Rismo from '../images/2Rismo Logo.png'
 import { LoginN } from './auth/LoginN.jsx'
 import Modal from 'react-bootstrap/Modal'
 import { BurgerOptionN } from './BurgerOptionN.jsx'
+import { HostAccountPrompt } from './auth/HostAccountPrompt.jsx'
 import { useAuth } from '../context/AuthContext'
 
 function NavBar() {
     const [showLogin, setShowLogin] = useState(false)
     const [showUserModal, setShowUserModal] = useState(false)
+    const [showHostPrompt, setShowHostPrompt] = useState(false)
     const [darkMode, setDarkMode] = useState(true)
     const [isScrolled, setIsScrolled] = useState(false)
     const [isLogoVisible, setIsLogoVisible] = useState(true)
@@ -61,6 +63,10 @@ function NavBar() {
                 </Link>
 
                 <div className='d-flex align-items-center navi-container'>
+                    <span className="account-side-indicatorN account-side-indicatorN--guest" aria-label="You are using the guest side">
+                        <i className="bi bi-person-fill" aria-hidden="true" />
+                        Guest side
+                    </span>
                     <button type="button" aria-label="Log in or sign up" onClick={handleUserClick} className="bg-transparent border-0 text-white">
                         {currentUser ? (
                             <span
@@ -104,7 +110,7 @@ function NavBar() {
                                 setShowLogin(true)
                             }
                         }}
-                        onListProperty={() => currentUser && userRole === 'host' ? navigate('/host') : setShowLogin(true)}
+                        onListProperty={() => userRole === 'host' ? navigate('/host') : setShowHostPrompt(true)}
                         onLogin={() => setShowLogin(true)}
                     />
                 </div>
@@ -136,6 +142,9 @@ function NavBar() {
                                 <p className="mb-0 text-capitalize">{userRole}</p>
                             </div>
                             <div className="d-flex flex-column gap-2 mt-3">
+                                <Link to="/destination" className="btn nav-profile-secondaryN w-100 fw-bold" onClick={() => setShowUserModal(false)}>
+                                    Destinations
+                                </Link>
                                 {userRole === 'host' && (
                                     <Link to="/host" className="btn nav-profile-primaryN w-100 fw-bold" onClick={() => setShowUserModal(false)}>Host Dashboard</Link>
                                 )}
@@ -159,6 +168,7 @@ function NavBar() {
                     )}
                 </Modal.Body>
             </Modal>
+            <HostAccountPrompt show={showHostPrompt} onHide={() => setShowHostPrompt(false)} />
         </div>
     )
 }

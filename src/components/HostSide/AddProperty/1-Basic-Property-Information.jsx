@@ -50,19 +50,21 @@ function LocationMarker({ position, setPosition, onPropertyChange }) {
 }
 
 export const BasicPropInfo = ({ onBack, onNext, property, onPropertyChange, editNavigation }) => {
-    const [name, setName] = useState(property?.name || 'Maldives Resort')
+    const [name, setName] = useState(property?.name || '')
     const [municipality, setMunicipality] = useState(
-        property?.municipality || property?.location?.split(',')[0] || 'Bustos'
+        property?.municipality || property?.location?.split(',')[0] || ''
     )
-    const [address, setAddress] = useState(property?.address || 'San Pedro, Bustos')
+    const [address, setAddress] = useState(property?.address || '')
     const [shortDescription, setShortDescription] = useState(
-        property?.shortDescription || 'Lorem ipsum dolor sit amet consectetur adipiscing elit at magna voluptate distinctio qui in omnis dolor in id placeat enim in praesentium pariatur laboris sint veniam sit ut qui duis sunt aliquip repellendus'
+        property?.shortDescription || ''
     )
     const [fullDescription, setFullDescription] = useState(
-        property?.description || 'Lorem ipsum dolor sit amet consectetur adipiscing elit at magna voluptate distinctio qui in omnis dolor in id placeat enim in praesentium pariatur laboris sint veniam sit ut qui duis sunt aliquip repellendus'
+        property?.description || ''
     )
 
     const [coordinates, setCoordinates] = useState(property?.coordinates || { lat: 14.9547, lng: 120.9575 })
+    const [locationConfirmed, setLocationConfirmed] = useState(Boolean(property?.coordinates))
+    const [validationError, setValidationError] = useState('')
 
     const countWords = (text) => text.trim() ? text.trim().split(/\s+/).length : 0
     const update = (field, value) => onPropertyChange?.({ [field]: value })
@@ -83,6 +85,21 @@ export const BasicPropInfo = ({ onBack, onNext, property, onPropertyChange, edit
 
             <form onSubmit={(event) => {
                 event.preventDefault()
+                const missingFields = [
+                    !name.trim() && 'Property name',
+                    !municipality && 'Municipality/City',
+                    !address.trim() && 'Complete address',
+                    !shortDescription.trim() && 'Short description',
+                    !fullDescription.trim() && 'Full property description',
+                    !locationConfirmed && 'Map location pin',
+                ].filter(Boolean)
+
+                if (missingFields.length) {
+                    setValidationError(`Complete the required fields: ${missingFields.join(', ')}.`)
+                    return
+                }
+
+                setValidationError('')
                 onPropertyChange?.({
                     name,
                     municipality,
@@ -94,22 +111,23 @@ export const BasicPropInfo = ({ onBack, onNext, property, onPropertyChange, edit
                 })
                 onNext?.()
             }}>
+                {validationError && <div className="alert alert-danger py-2" role="alert">{validationError}</div>}
                 <div className="row g-4">
                     <div className="col-12 col-md-6">
                         <div className="mb-3">
                             <label className="form-label small mb-1" htmlFor="property-name">Property Name</label>
-                            <input id="property-name" className="form-control host-add-property-inputN" value={name} onChange={(event) => { setName(event.target.value); update('name', event.target.value) }} />
+                            <input id="property-name" className="form-control host-add-property-inputN" value={name} onChange={(event) => { setName(event.target.value); update('name', event.target.value) }} required />
                         </div>
 
                         <div className="mb-3">
                             <label className="form-label small mb-1" htmlFor="property-short-description">Short Description</label>
-                            <textarea id="property-short-description" className="form-control host-add-property-inputN" rows="5" maxLength={1200} value={shortDescription} onChange={(event) => { setShortDescription(event.target.value); update('shortDescription', event.target.value) }} />
+                            <textarea id="property-short-description" className="form-control host-add-property-inputN" rows="5" maxLength={1200} value={shortDescription} onChange={(event) => { setShortDescription(event.target.value); update('shortDescription', event.target.value) }} required />
                             <div className="small text-end host-add-property-countN">{countWords(shortDescription)}/150 words</div>
                         </div>
 
                         <div>
                             <label className="form-label small mb-1" htmlFor="property-full-description">Full Property Description</label>
-                            <textarea id="property-full-description" className="form-control host-add-property-inputN" rows="5" value={fullDescription} onChange={(event) => { setFullDescription(event.target.value); update('description', event.target.value) }} />
+                            <textarea id="property-full-description" className="form-control host-add-property-inputN" rows="5" value={fullDescription} onChange={(event) => { setFullDescription(event.target.value); update('description', event.target.value) }} required />
                             <div className="small text-end host-add-property-countN">{countWords(fullDescription)} words</div>
                         </div>
                     </div>
@@ -117,7 +135,8 @@ export const BasicPropInfo = ({ onBack, onNext, property, onPropertyChange, edit
                     <div className="col-12 col-md-6">
                         <div className="mb-3">
                             <label className="form-label small mb-1" htmlFor="property-municipality">Municipality/City</label>
-                            <select id="property-municipality" className="form-select host-add-property-inputN" value={municipality} onChange={(event) => { setMunicipality(event.target.value); update('municipality', event.target.value); update('location', `${event.target.value}, Bulacan`) }}>
+                            <select id="property-municipality" className="form-select host-add-property-inputN" value={municipality} onChange={(event) => { setMunicipality(event.target.value); update('municipality', event.target.value); update('location', `${event.target.value}, Bulacan`) }} required>
+                                <option value="">Select a municipality or city</option>
                                 <option value="Bustos">Bustos</option>
                                 <option value="Baliwag">Baliwag</option>
                                 <option value="Plaridel">Plaridel</option>
@@ -126,7 +145,7 @@ export const BasicPropInfo = ({ onBack, onNext, property, onPropertyChange, edit
 
                         <div className="mb-3">
                             <label className="form-label small mb-1" htmlFor="property-address">Complete Address</label>
-                            <input id="property-address" className="form-control host-add-property-inputN" value={address} onChange={(event) => { setAddress(event.target.value); update('address', event.target.value) }} />
+                            <input id="property-address" className="form-control host-add-property-inputN" value={address} onChange={(event) => { setAddress(event.target.value); update('address', event.target.value) }} required />
                         </div>
 
                         <label className="form-label small mb-2">Location Map Pin (Click or drag marker)</label>
@@ -136,12 +155,15 @@ export const BasicPropInfo = ({ onBack, onNext, property, onPropertyChange, edit
                                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                 />
-                                <LocationMarker position={coordinates} setPosition={setCoordinates} onPropertyChange={onPropertyChange} />
+                                <LocationMarker position={coordinates} setPosition={(nextCoordinates) => { setCoordinates(nextCoordinates); setLocationConfirmed(true); setValidationError('') }} onPropertyChange={onPropertyChange} />
                             </MapContainer>
                         </div>
                         <div className="small text-muted mt-1">
                             Lat: {coordinates.lat.toFixed(4)}, Lng: {coordinates.lng.toFixed(4)}
                         </div>
+                        {!locationConfirmed && (
+                            <div className="small text-warning mt-1">Click the map or drag the marker to confirm the property location.</div>
+                        )}
                     </div>
                 </div>
 

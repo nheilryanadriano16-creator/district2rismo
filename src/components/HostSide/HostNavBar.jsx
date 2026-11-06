@@ -92,6 +92,20 @@ export const HostNavBar = ({ activeSection, onSelect, preview = false, onLogout 
                 </Link>
 
                 <div className="d-flex align-items-center gap-2">
+                    <span className="account-side-indicatorN account-side-indicatorN--host" aria-label="You are using the host side">
+                        <i className="bi bi-house-door-fill" aria-hidden="true" />
+                        Host side
+                    </span>
+                    {!preview && (
+                        <Link
+                            to="/account"
+                            className="btn btn-sm btn-outline-warning text-nowrap"
+                            aria-label="Open customer account"
+                        >
+                            <i className="bi bi-person-circle me-sm-1" aria-hidden="true" />
+                            <span className="d-none d-sm-inline">Customer account</span>
+                        </Link>
+                    )}
                     <Link
                         to={profilePath}
                         className="host-profile-placeholderN rounded-circle border border-warning d-flex align-items-center justify-content-center text-warning fw-bold text-decoration-none"

@@ -22,14 +22,7 @@ export function HostAddProperty({
     rejectText = 'Reject'
 }) {
     const [step, setStep] = useState(1)
-    const [draft, setDraft] = useState(property || {
-        name: 'Maldives Resort',
-        municipality: 'Bustos',
-        location: 'Bustos, Bulacan',
-        address: 'San Pedro, Bustos',
-        shortDescription: 'Lorem ipsum dolor sit amet consectetur adipiscing elit at magna voluptate distinctio qui in omnis dolor in id placeat enim in praesentium pariatur laboris sint veniam sit ut qui duis sunt aliquip repellendus',
-        description: 'Lorem ipsum dolor sit amet consectetur adipiscing elit at magna voluptate distinctio qui in omnis dolor in id placeat enim in praesentium pariatur laboris sint veniam sit ut qui duis sunt aliquip repellendus',
-    })
+    const [draft, setDraft] = useState(property || {})
     const [saving, setSaving] = useState(false)
     const { currentUser, userData } = useAuth()
     const { showNotification } = useNotification()

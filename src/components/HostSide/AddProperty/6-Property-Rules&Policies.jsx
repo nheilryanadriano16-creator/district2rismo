@@ -25,22 +25,18 @@ const resortRules = [
     'No running',
 ]
 
-const initialRuleText =
-    'Lorem ipsum dolor sit amet consectetur adipiscing elit at magna voluptate distinctio qui in omnis dolor in id placeat enim in praesentium pariatur laboris sint veniam sit ut qui duis sunt aliquip repellendus'
-
 const countWords = (text) => text.trim() ? text.trim().split(/\s+/).length : 0
 
 export const PropertyRulesPolicies = ({ onBack, onNext, onExit, property, onPropertyChange, editNavigation }) => {
-    const [policies, setPolicies] = useState(property?.policies || {
-        'Outside Food & Drinks': 'Allowed/Not Allowed/Allowed with Additional Fee',
-        Pets: 'Allowed/Not Allowed/Allowed with Restrictions',
-        Alcohol: 'Allowed/Not Allowed/Allowed in Designated Areas/Allowed with Restrictions',
-        Smoking: 'Allowed/Not Allowed/Designated Smoking Areas Only',
-    })
-    const [selectedRules, setSelectedRules] = useState(property?.selectedRules || [
-        'Proper swimming attire required',
-    ])
-    const [ruleText, setRuleText] = useState(property?.rulesDescription || initialRuleText)
+    const [policies, setPolicies] = useState(() => Object.fromEntries(
+        guestPolicies.map(({ label, options }) => [
+            label,
+            options.includes(property?.policies?.[label]) ? property.policies[label] : '',
+        ])
+    ))
+    const [selectedRules, setSelectedRules] = useState(property?.selectedRules || [])
+    const [ruleText, setRuleText] = useState(property?.rulesDescription || '')
+    const [validationError, setValidationError] = useState('')
 
     const toggleRule = (rule) => {
         const updated = selectedRules.includes(rule)
@@ -73,6 +69,7 @@ export const PropertyRulesPolicies = ({ onBack, onNext, onExit, property, onProp
             <h1 className="h5 fw-bold text-warning mb-3">
                 6. Property Rules &amp; Policies
             </h1>
+            {validationError && <div className="alert alert-danger py-2" role="alert">{validationError}</div>}
 
             <div className="row g-4">
                 <div className="col-12 col-md-5">
@@ -90,12 +87,15 @@ export const PropertyRulesPolicies = ({ onBack, onNext, onExit, property, onProp
                                 id={`guest-policy-${index}`}
                                 className="form-select host-add-property-inputN host-policy-selectN"
                                 value={policies[policy.label]}
+                                required
                                 onChange={(event) => {
                                     const updated = { ...policies, [policy.label]: event.target.value }
                                     setPolicies(updated)
+                                    setValidationError('')
                                     onPropertyChange?.({ policies: updated })
                                 }}
                             >
+                                <option value="">Select a policy</option>
                                 {policy.options.map((option) => (
                                     <option key={option} value={option}>
                                         {option}
@@ -170,6 +170,14 @@ export const PropertyRulesPolicies = ({ onBack, onNext, onExit, property, onProp
                     type="button"
                     className="btn btn-warning rounded-pill px-5 py-2 host-add-property-nextN"
                     onClick={() => {
+                        const missingPolicies = guestPolicies
+                            .filter((policy) => !policies[policy.label])
+                            .map((policy) => policy.label)
+                        if (missingPolicies.length) {
+                            setValidationError(`Choose a policy for each item: ${missingPolicies.join(', ')}.`)
+                            return
+                        }
+                        setValidationError('')
                         onPropertyChange?.({
                             policies,
                             selectedRules,

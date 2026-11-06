@@ -14,6 +14,10 @@ body {
     font-family: 'Manrope';
 }
 
+.continue-buttonN {
+    font-size: clamp(1rem, 4vw, 1.1rem);
+}
+
 .hero {
     position: relative;
     height: 100dvh;
@@ -103,6 +107,29 @@ body {
 .navi-container svg:hover {
     color: #FFB200;
     transform: scale(1.1);
+}
+
+.account-side-indicatorN {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .4rem .65rem;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 800;
+    letter-spacing: .035em;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.account-side-indicatorN--guest {
+    color: #24221B;
+    background-color: #E4DFD8;
+}
+
+.account-side-indicatorN--host {
+    color: #24221B;
+    background-color: #FFB200;
 }
 
 .main-text-container h1 {
@@ -328,6 +355,7 @@ hr {
 .filter:focus-visible {
     border-color: #FFB200;
 }
+
 
 .search-wrapper {
     background-color: #383529;

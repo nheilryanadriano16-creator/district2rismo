@@ -2,7 +2,7 @@ import Dropdown from 'react-bootstrap/Dropdown'
 import { useAuth } from '../context/AuthContext'
 
 export const BurgerOptionN = ({ darkMode = false, onToggleDarkMode, onNotifications, onHelpCenter, onListProperty, onLogin }) => {
-    const { currentUser, logout } = useAuth()
+    const { currentUser, userRole, logout } = useAuth()
 
     const handleLogout = async () => {
         try {
@@ -27,6 +27,13 @@ export const BurgerOptionN = ({ darkMode = false, onToggleDarkMode, onNotificati
                     <i className="bi bi-question-circle me-2" aria-hidden="true" />
                     Help Center
                 </Dropdown.Item>
+
+                {currentUser && userRole === 'customer' && (
+                    <Dropdown.Item as="button" onClick={onListProperty}>
+                        <i className="bi bi-house-add me-2" aria-hidden="true" />
+                        List your property
+                    </Dropdown.Item>
+                )}
 
                 <Dropdown.Divider className="border-warning opacity-50" />
 

@@ -1,66 +1,68 @@
 import { useState } from 'react'
+import { toDisplayTime, toTimeInputValue } from '../../../utils/timeFormat'
 
 const initialTourSettings = {
     day: { enabled: true, checkIn: '08:00 AM', checkOut: '05:00 PM', rate: '5000' },
     night: { enabled: false, checkIn: '05:00 PM', checkOut: '08:00 AM', rate: '7000' },
     flexible: {
         enabled: false,
-        checkIns: ['08:00 AM'],
-        checkOuts: ['05:00 PM'],
+        checkIns: ['08:00'],
+        checkOuts: ['17:00'],
         rate: '5000',
     },
 }
 
 export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, onPropertyChange, editNavigation }) => {
     const parseTourSettings = (savedTours) => {
-        if (!savedTours) return initialTourSettings
+        const tours = savedTours || initialTourSettings
         return {
             day: {
-                enabled: savedTours.day?.enabled ?? false,
-                checkIn: savedTours.day?.checkIn || '08:00 AM',
-                checkOut: savedTours.day?.checkOut || '05:00 PM',
-                rate: savedTours.day?.rate || '5000',
+                enabled: tours.day?.enabled ?? false,
+                checkIn: toTimeInputValue(tours.day?.checkIn || '08:00 AM'),
+                checkOut: toTimeInputValue(tours.day?.checkOut || '05:00 PM'),
+                rate: tours.day?.rate || '5000',
             },
             night: {
-                enabled: savedTours.night?.enabled ?? false,
-                checkIn: savedTours.night?.checkIn || '05:00 PM',
-                checkOut: savedTours.night?.checkOut || '08:00 AM',
-                rate: savedTours.night?.rate || '7000',
+                enabled: tours.night?.enabled ?? false,
+                checkIn: toTimeInputValue(tours.night?.checkIn || '05:00 PM'),
+                checkOut: toTimeInputValue(tours.night?.checkOut || '08:00 AM'),
+                rate: tours.night?.rate || '7000',
             },
             flexible: {
-                enabled: savedTours.flexible?.enabled ?? false,
-                checkIns: savedTours.flexible?.checkIns || ['08:00 AM'],
-                checkOuts: savedTours.flexible?.checkOuts || ['05:00 PM'],
-                rate: savedTours.flexible?.rate || '5000',
+                enabled: tours.flexible?.enabled ?? false,
+                checkIns: (tours.flexible?.checkIns || ['08:00 AM']).map(toTimeInputValue),
+                checkOuts: (tours.flexible?.checkOuts || ['05:00 PM']).map(toTimeInputValue),
+                rate: tours.flexible?.rate || '5000',
             },
         }
     }
 
     const [tours, setTours] = useState(parseTourSettings(property?.tourSettings))
+    const [validationError, setValidationError] = useState('')
 
     const buildPayload = (currentTours) => {
         const payload = {}
         if (currentTours.day?.enabled) {
             payload.day = {
                 enabled: true,
-                checkIn: currentTours.day.checkIn,
-                checkOut: currentTours.day.checkOut,
+                checkIn: toDisplayTime(currentTours.day.checkIn),
+                checkOut: toDisplayTime(currentTours.day.checkOut),
                 rate: currentTours.day.rate,
             }
         }
         if (currentTours.night?.enabled) {
             payload.night = {
                 enabled: true,
-                checkIn: currentTours.night.checkIn,
-                checkOut: currentTours.night.checkOut,
+                checkIn: toDisplayTime(currentTours.night.checkIn),
+                checkOut: toDisplayTime(currentTours.night.checkOut),
                 rate: currentTours.night.rate,
             }
         }
         if (currentTours.flexible?.enabled) {
             payload.flexible = {
                 enabled: true,
-                checkIns: currentTours.flexible.checkIns,
-                checkOuts: currentTours.flexible.checkOuts,
+                checkIns: currentTours.flexible.checkIns.map(toDisplayTime),
+                checkOuts: currentTours.flexible.checkOuts.map(toDisplayTime),
                 rate: currentTours.flexible.rate,
             }
         }
@@ -73,6 +75,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
             [tour]: { ...tours[tour], [field]: value },
         }
         setTours(updated)
+        setValidationError('')
         onPropertyChange?.({ tourSettings: buildPayload(updated) })
     }
 
@@ -82,6 +85,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
             [tourKey]: { ...tours[tourKey], enabled: !tours[tourKey].enabled },
         }
         setTours(updated)
+        setValidationError('')
         onPropertyChange?.({ tourSettings: buildPayload(updated) })
     }
 
@@ -94,6 +98,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
             },
         }
         setTours(updated)
+        setValidationError('')
         onPropertyChange?.({ tourSettings: buildPayload(updated) })
     }
 
@@ -136,9 +141,10 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                         <input
                             id={`${key}-checkin`}
                             className="form-control host-add-property-inputN mb-2"
-                            type="text"
+                            type="time"
                             value={tour.checkIn || ''}
-                            readOnly
+                            required={tour.enabled}
+                            onChange={(event) => updateTour(key, 'checkIn', event.target.value)}
                         />
 
                         <label className="form-label small mb-1" htmlFor={`${key}-checkout`}>
@@ -147,9 +153,10 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                         <input
                             id={`${key}-checkout`}
                             className="form-control host-add-property-inputN mb-2"
-                            type="text"
+                            type="time"
                             value={tour.checkOut || ''}
-                            readOnly
+                            required={tour.enabled}
+                            onChange={(event) => updateTour(key, 'checkOut', event.target.value)}
                         />
                     </>
                 ) : (
@@ -163,6 +170,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                                     type="time"
                                     aria-label={`Flexible check-in time ${index + 1}`}
                                     value={time}
+                                    required={tour.enabled}
                                     onChange={(event) =>
                                         editFlexibleTime('checkIns', index, event.target.value)
                                     }
@@ -189,6 +197,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                                 type="time"
                                 aria-label={`Flexible check-out time ${index + 1}`}
                                 value={time}
+                                required={tour.enabled}
                                 onChange={(event) =>
                                     editFlexibleTime('checkOuts', index, event.target.value)
                                 }
@@ -206,8 +215,9 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                         id={`${key}-rate`}
                         className="form-control host-add-property-inputN"
                         type="number"
-                        min="0"
+                        min="1"
                         value={tour.rate || ''}
+                        required={tour.enabled}
                         onChange={(event) => updateTour(key, 'rate', event.target.value)}
                     />
                 </div>
@@ -238,6 +248,7 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
             <h1 className="h5 fw-bold text-warning mb-4">
                 4. Check-in &amp; Check-out Times and Rates
             </h1>
+            {validationError && <div className="alert alert-danger py-2" role="alert">{validationError}</div>}
 
             <div className="row g-3">
                 {renderTour('day', 'Day Tour')}
@@ -259,6 +270,31 @@ export const CheckInCheckOutTimesRules = ({ onBack, onNext, onExit, property, on
                     type="button"
                     className="btn btn-warning rounded-pill px-5 py-2 host-add-property-nextN"
                     onClick={() => {
+                        const enabledTours = Object.entries(tours).filter(([, tour]) => tour.enabled)
+                        if (!enabledTours.length) {
+                            setValidationError('Enable at least one tour schedule before continuing.')
+                            return
+                        }
+
+                        const incompleteTour = enabledTours.find(([key, tour]) => {
+                            const hasRate = Number(tour.rate) > 0
+                            if (key === 'flexible') {
+                                return !hasRate ||
+                                    !tour.checkIns.length ||
+                                    !tour.checkOuts.length ||
+                                    tour.checkIns.some((time) => !time) ||
+                                    tour.checkOuts.some((time) => !time)
+                            }
+                            return !hasRate || !tour.checkIn || !tour.checkOut
+                        })
+
+                        if (incompleteTour) {
+                            const label = { day: 'Day Tour', night: 'Night Tour', flexible: 'Flexible' }[incompleteTour[0]]
+                            setValidationError(`Complete the check-in time, check-out time, and positive rate for ${label} before continuing.`)
+                            return
+                        }
+
+                        setValidationError('')
                         onPropertyChange?.({ tourSettings: buildPayload(tours) })
                         onNext?.()
                     }}

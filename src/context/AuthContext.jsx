@@ -5,7 +5,7 @@ import {
   createUserWithEmailAndPassword, 
   signOut 
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useNotification } from "./NotificationContext";
 import { normalizeRole } from "../utils/roles";
@@ -93,6 +93,32 @@ export const AuthProvider = ({ children }) => {
     setUserData((current) => (current ? { ...current, ...partial } : current));
   };
 
+  const enableHostAccount = async () => {
+    if (!currentUser) {
+      throw new Error("You must be signed in to create a host account.");
+    }
+
+    if (userRole === "host") return;
+    if (userRole !== "customer") {
+      throw new Error("Only customer accounts can apply for host access.");
+    }
+
+    const hostAccountData = {
+      role: "host",
+      status: "Unverified",
+      hostAccountCreatedAt: serverTimestamp(),
+    };
+
+    await updateDoc(doc(db, "users", currentUser.uid), hostAccountData);
+    setUserData((current) => (
+      current
+        ? { ...current, ...hostAccountData, hostAccountCreatedAt: new Date() }
+        : current
+    ));
+    setUserRole("host");
+    showNotification("Host access created. Complete verification to list your property.", "success");
+  };
+
   const logout = async () => {
     try {
       await signOut(auth);
@@ -129,7 +155,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ currentUser, userData, userRole, signup, login, logout, updateUserData, loading }}>
+    <AuthContext.Provider value={{ currentUser, userData, userRole, signup, login, logout, updateUserData, enableHostAccount, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

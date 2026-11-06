@@ -135,7 +135,7 @@ export const LoginN = ({ onClose }) => {
                 </div>
 
                 <div className="d-flex flex-column gap-2 mt-4">
-                    <button className="btn continue-buttonN btn-lg w-100 fw-semibold text-black" type="submit" disabled={loading}>
+                    <button className="continue-buttonN btn-lg w-100 fw-semibold text-black" type="submit" disabled={loading}>
                         {loading ? 'Processing...' : (showPasswordInput ? 'Log In' : 'Continue')}
                     </button>
                 </div>

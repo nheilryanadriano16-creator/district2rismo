@@ -51,6 +51,7 @@ const readPhoto = (file) => new Promise((resolve, reject) => {
 
 export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange, editNavigation }) => {
     const [photos, setPhotos] = useState(() => getSavedPhotos(property))
+    const [validationError, setValidationError] = useState('')
     const objectUrls = useRef(new Set())
 
     useEffect(() => {
@@ -108,6 +109,7 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
             })
         }
         setPhotos(updatedPhotos)
+        if (group.id === 'cover') setValidationError('')
 
         Promise.all(updatedPhotos[group.id].map(async (photo) => ({
             id: photo.id,
@@ -136,6 +138,9 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
         const remainingPhotos = (photos[groupId] || []).filter((item) => item.id !== photoId)
         const updatedPhotos = { ...photos, [groupId]: remainingPhotos }
         setPhotos(updatedPhotos)
+        if (groupId === 'cover' && remainingPhotos.length === 0) {
+            setValidationError('A cover photo is required. Upload one before continuing.')
+        }
 
         const savedPhotos = remainingPhotos.map(({ id, file, preview }) => ({
             id,
@@ -159,7 +164,7 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
                     htmlFor={inputId}
                     className="form-control host-photo-uploadN d-flex align-items-center justify-content-between"
                 >
-                    <span>{group.title}</span>
+                    <span>{group.title}{group.id === 'cover' ? ' *' : ''}</span>
                     <i className="bi bi-upload" aria-hidden="true" />
                 </label>
 
@@ -229,6 +234,7 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
             </nav>
 
             <h1 className="h5 fw-bold text-warning mb-4">3. Photos and Media</h1>
+            {validationError && <div className="alert alert-danger py-2" role="alert">{validationError}</div>}
 
             <div className="row g-4">
                 <div className="col-12 col-md-6">
@@ -252,7 +258,13 @@ export const PhotosMedia = ({ onBack, onNext, onExit, property, onPropertyChange
                 <button
                     type="button"
                     className="btn btn-warning rounded-pill px-5 py-2 host-add-property-nextN"
-                    onClick={onNext}
+                    onClick={() => {
+                        if (!photos.cover?.length) {
+                            setValidationError('A cover photo is required. Upload one before continuing.')
+                            return
+                        }
+                        onNext?.()
+                    }}
                 >
                     Next
                 </button>
