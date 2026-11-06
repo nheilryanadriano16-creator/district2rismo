@@ -14,6 +14,16 @@ function NavBar() {
     const [isLogoVisible, setIsLogoVisible] = useState(true)
 
     const { currentUser, userData, userRole, logout } = useAuth()
+
+    const profileInitial = [
+        userData?.firstName,
+        currentUser?.displayName,
+        currentUser?.email,
+    ].find((value) => typeof value === 'string' && value.trim())
+        ?.trim()
+        .charAt(0)
+        .toUpperCase() || '?'
+
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -52,9 +62,26 @@ function NavBar() {
 
                 <div className='d-flex align-items-center navi-container'>
                     <button type="button" aria-label="Log in or sign up" onClick={handleUserClick} className="bg-transparent border-0 text-white">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" fill="currentColor" className="bi bi-person-fill" viewBox="0 0 18 18">
-                            <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
-                        </svg>
+                        {currentUser ? (
+                            <span
+                                aria-hidden="true"
+                                className="rounded-circle bg-warning text-dark fw-bold d-inline-flex align-items-center justify-content-center"
+                                style={{ width: 35, height: 35 }}
+                            >
+                                {profileInitial}
+                            </span>
+                        ) : (
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="35"
+                                height="35"
+                                fill="currentColor"
+                                className="bi bi-person-fill"
+                                viewBox="0 0 18 18"
+                            >
+                                <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
+                            </svg>
+                        )}
                     </button>
                     <BurgerOptionN
                         darkMode={darkMode}
