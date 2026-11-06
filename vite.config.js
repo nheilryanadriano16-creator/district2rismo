@@ -18,23 +18,6 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom'],
   },
-  build: {
-    rolldownOptions: {
-      output: {
-        codeSplitting: {
-          groups: [
-            {
-              name: 'firebase',
-              test: /node_modules[\\/](@firebase|firebase)[\\/]/,
-              minSize: 80_000,
-              maxSize: 450_000,
-              priority: 20,
-            },
-          ],
-        },
-      },
-    },
-  },
   plugins: [
     react(),
     transformJsxInJs()
