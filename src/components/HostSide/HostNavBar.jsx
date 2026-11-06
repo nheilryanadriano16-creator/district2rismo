@@ -4,53 +4,22 @@ import Offcanvas from 'react-bootstrap/Offcanvas'
 import Logo2Rismo from '../../images/2Rismo Logo.png'
 import { HostSideBarN } from './HostSideBarN.jsx'
 import { useAuth } from '../../context/AuthContext'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '../../firebase'
 
 export const HostNavBar = ({ activeSection, onSelect, preview = false, onLogout }) => {
     const [showMenu, setShowMenu] = useState(false)
-    const [firestoreFirstName, setFirestoreFirstName] = useState('')
     const dashboardPath =  '/host'
     const profilePath = '/host/profile'
     const navigate = useNavigate()
 
-    const auth = useAuth() || {}
-    const { logout, user } = auth
-
-    useEffect(() => {
-        const fetchUserData = async () => {
-            const uid = user?.uid || auth?.currentUser?.uid
-            if (uid) {
-                try {
-                    const userDocRef = doc(db, 'users', uid)
-                    const userSnap = await getDoc(userDocRef)
-                    if (userSnap.exists()) {
-                        const data = userSnap.data()
-                        if (data?.firstName) {
-                            setFirestoreFirstName(data.firstName)
-                        }
-                    }
-                } catch (error) {
-                    console.error('Error fetching user profile from Firestore:', error)
-                }
-            }
-        }
-
-        fetchUserData()
-    }, [user, auth])
-
-    const getInitial = () => {
-        const activeUser = user || auth?.currentUser
-        const name = firestoreFirstName || activeUser?.displayName
-
-        if (name && typeof name === 'string' && name.trim()) {
-            return name.trim().charAt(0).toUpperCase()
-        }
-
-        return null
-    }
-
-    const firstInitial = getInitial()
+    const { logout, currentUser, userData } = useAuth()
+    const profileInitial = [
+        userData?.firstName,
+        currentUser?.displayName,
+        currentUser?.email,
+    ].find((value) => typeof value === 'string' && value.trim())
+        ?.trim()
+        .charAt(0)
+        .toUpperCase() || '?'
 
     const handleLogout = async () => {
         if (onLogout) {
@@ -108,15 +77,11 @@ export const HostNavBar = ({ activeSection, onSelect, preview = false, onLogout 
                     )}
                     <Link
                         to={profilePath}
-                        className="host-profile-placeholderN rounded-circle border border-warning d-flex align-items-center justify-content-center text-warning fw-bold text-decoration-none"
+                        className="host-profile-placeholderN rounded-circle border border-warning bg-warning text-dark fw-bold text-decoration-none d-flex align-items-center justify-content-center"
                         aria-label="Open my profile"
                         style={{ width: '40px', height: '40px', fontSize: '16px', lineHeight: '1' }}
                     >
-                        {firstInitial ? (
-                            <span>{firstInitial}</span>
-                        ) : (
-                            <i className="bi bi-person-fill" aria-hidden="true" />
-                        )}
+                        {profileInitial}
                     </Link>
 
                     <button

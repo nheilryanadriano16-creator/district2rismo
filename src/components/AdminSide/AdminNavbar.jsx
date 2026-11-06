@@ -8,10 +8,18 @@ import { AdminSidebar } from './AdminSidebar.jsx'
 export function AdminNavbar({ activeSection, onSelect, preview = false }) {
     const [showMenu, setShowMenu] = useState(false)
     const [isScrolled, setIsScrolled] = useState(false)
-    const { logout } = useAuth()
+    const { logout, currentUser, userData } = useAuth()
     const navigate = useNavigate()
     const dashboardPath = preview ? '/admin-preview' : '/admin'
     const profilePath = preview ? '/admin-profile-preview' : '/admin/profile'
+    const profileInitial = [
+        userData?.firstName,
+        currentUser?.displayName,
+        currentUser?.email,
+    ].find((value) => typeof value === 'string' && value.trim())
+        ?.trim()
+        .charAt(0)
+        .toUpperCase() || '?'
 
     useEffect(() => {
         const updateScrollState = () => setIsScrolled(window.scrollY > 0)
@@ -34,18 +42,24 @@ export function AdminNavbar({ activeSection, onSelect, preview = false }) {
     return (
         <>
             <header className={`admin-navbarN container-fluid d-flex align-items-center justify-content-between${isScrolled ? ' is-scrolled' : ''}`}>
-                <Link to={dashboardPath} className="d-inline-flex me-auto" aria-label="Admin dashboard">
+                <Link
+                    to={dashboardPath}
+                    className="d-inline-flex me-auto"
+                    aria-label="Admin dashboard"
+                    onClick={() => onSelect?.('Dashboard')}
+                >
                     <img className="img-fluid logo" src={Logo2Rismo} alt="District 2rismo" />
                 </Link>
 
                 <div className="d-flex align-items-center gap-2">
                     <button
                         type="button"
-                        className="btn p-0 host-profile-placeholderN rounded-circle border border-warning d-flex align-items-center justify-content-center"
+                        className="btn p-0 host-profile-placeholderN rounded-circle border border-warning bg-warning text-dark fw-bold d-flex align-items-center justify-content-center"
                         aria-label="Open my profile"
                         onClick={() => navigate(profilePath)}
+                        style={{ width: '40px', height: '40px', fontSize: '16px', lineHeight: '1' }}
                     >
-                        <i className="bi bi-person-fill" aria-hidden="true" />
+                        {profileInitial}
                     </button>
 
                     <button
