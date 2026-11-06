@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { doc, updateDoc, getDoc } from 'firebase/firestore'
+import { doc, updateDoc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import resortImage from '../../images/Bustos Hero.png'
 import { HostAddProperty } from '../../pages/HostAddProperty.jsx'
@@ -64,6 +64,34 @@ export function AdminPropertyDetails({
                 } else {
                     await updateDoc(docRef, { status: newStatus })
                 }
+
+                const hostId = currentProperty.hostId || currentProperty.userId || null
+                const hostEmail = currentProperty.hostEmail || currentProperty.userEmail || currentProperty.email || null
+                const propertyName = currentProperty.name || 'Your Property'
+
+                let notifTitle = 'Property Update'
+                let notifMessage = `Your property listing for "${propertyName}" status has been set to ${newStatus}.`
+
+                if (newStatus === 'Approved') {
+                    notifTitle = 'Property Approved!'
+                    notifMessage = `Your property listing for "${propertyName}" has been approved and is now live!`
+                } else if (newStatus === 'Rejected') {
+                    notifTitle = 'Property Rejected'
+                    notifMessage = `Your property listing for "${propertyName}" was rejected by the administrator.`
+                } else if (newStatus === 'Revoked') {
+                    notifTitle = 'Property Approval Revoked'
+                    notifMessage = `Approval for your property "${propertyName}" has been revoked.`
+                }
+
+                await addDoc(collection(db, 'notifications'), {
+                    userId: hostId,
+                    userEmail: hostEmail,
+                    title: notifTitle,
+                    message: notifMessage,
+                    propertyId: currentProperty.id,
+                    read: false,
+                    createdAt: serverTimestamp(),
+                })
             }
 
             const updated = { ...currentProperty, status: newStatus }

@@ -53,7 +53,6 @@ function BookingCard({ cottages = [], resort, property }) {
     const currentTour = defaultTours.find(t => t.key === selectedTourKey) || defaultTours[0]
     const tourPrice = Number(currentTour.price) || 0
 
-    // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -83,18 +82,36 @@ function BookingCard({ cottages = [], resort, property }) {
         )
     }
 
+    const handleGuestsChange = (e) => {
+        const val = e.target.value
+        if (val === '') {
+            setGuestsCount('')
+        } else {
+            const parsed = parseInt(val, 10)
+            setGuestsCount(isNaN(parsed) ? '' : Math.max(1, parsed))
+        }
+    }
+
+    const handleGuestsBlur = () => {
+        if (!guestsCount || Number(guestsCount) < 1) {
+            setGuestsCount(1)
+        }
+    }
+
     const handleBook = () => {
         if (!currentUser) {
             navigate('/login', { state: { returnUrl: window.location.pathname } })
             return
         }
 
+        const finalGuestsCount = Number(guestsCount) || 1
+
         navigate('/pay', {
             state: {
                 booking: {
                     date,
                     session: currentTour.label,
-                    guestsCount,
+                    guestsCount: finalGuestsCount,
                     cottages: selectedCottages.map(c => ({ name: c.name, price: Number(c.price || c.rate) || 0 })),
                     tourPrice,
                     cottagesPrice,
@@ -166,7 +183,8 @@ function BookingCard({ cottages = [], resort, property }) {
                     min={1}
                     max={property?.capacity || 100}
                     value={guestsCount}
-                    onChange={e => setGuestsCount(Math.max(1, parseInt(e.target.value) || 1))}
+                    onChange={handleGuestsChange}
+                    onBlur={handleGuestsBlur}
                 />
             </div>
 

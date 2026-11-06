@@ -1,16 +1,51 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 
-const initialProfile = {
-    firstName: '',
-    lastName: '',
-    dateOfBirth: '',
-    phoneNumber: '',
-}
-
-export const EditProfileN = ({ onSave }) => {
-    const [profile, setProfile] = useState(initialProfile)
-    const [draft, setDraft] = useState(initialProfile)
+export const EditProfileN = () => {
+    const { currentUser, userData } = useAuth()
+    const [profile, setProfile] = useState({
+        firstName: '',
+        lastName: '',
+        dateOfBirth: '',
+        phoneNumber: '',
+    })
+    const [draft, setDraft] = useState(profile)
     const [isEditing, setIsEditing] = useState(false)
+    const [saving, setSaving] = useState(false)
+
+    useEffect(() => {
+        async function loadProfile() {
+            if (!currentUser?.uid) return
+            try {
+                const userDoc = await getDoc(doc(db, 'users', currentUser.uid))
+                if (userDoc.exists()) {
+                    const data = userDoc.data()
+                    const initial = {
+                        firstName: data.firstName || '',
+                        lastName: data.lastName || '',
+                        dateOfBirth: data.dateOfBirth || '',
+                        phoneNumber: data.phoneNumber || data.phone || '',
+                    }
+                    setProfile(initial)
+                    setDraft(initial)
+                } else if (userData) {
+                    const initial = {
+                        firstName: userData.firstName || '',
+                        lastName: userData.lastName || '',
+                        dateOfBirth: userData.dateOfBirth || '',
+                        phoneNumber: userData.phoneNumber || userData.phone || '',
+                    }
+                    setProfile(initial)
+                    setDraft(initial)
+                }
+            } catch (err) {
+                console.error('Error fetching user profile:', err)
+            }
+        }
+        loadProfile()
+    }, [currentUser, userData])
 
     const handleChange = (event) => {
         const { name, value } = event.target
@@ -27,11 +62,29 @@ export const EditProfileN = ({ onSave }) => {
         setIsEditing(false)
     }
 
-    const handleSubmit = (event) => {
+    const handleSubmit = async (event) => {
         event.preventDefault()
-        setProfile(draft)
-        setIsEditing(false)
-        onSave?.(draft)
+        if (!currentUser?.uid) return
+
+        try {
+            setSaving(true)
+            const userRef = doc(db, 'users', currentUser.uid)
+            await updateDoc(userRef, {
+                firstName: draft.firstName,
+                lastName: draft.lastName,
+                dateOfBirth: draft.dateOfBirth,
+                phoneNumber: draft.phoneNumber,
+                phone: draft.phoneNumber,
+            })
+            setProfile(draft)
+            setIsEditing(false)
+            alert('Profile updated successfully!')
+        } catch (err) {
+            console.error('Error updating profile:', err)
+            alert('Failed to update profile: ' + err.message)
+        } finally {
+            setSaving(false)
+        }
     }
 
     return (
@@ -59,8 +112,10 @@ export const EditProfileN = ({ onSave }) => {
                 <div className="d-flex justify-content-end gap-2 mt-4">
                     {isEditing ? (
                         <>
-                            <button className="btn btn-outline-light rounded-pill px-4" type="button" onClick={handleCancel}>Cancel</button>
-                            <button className="btn btn-warning rounded-pill px-4 fw-semibold" type="submit">Save</button>
+                            <button className="btn btn-outline-light rounded-pill px-4" type="button" onClick={handleCancel} disabled={saving}>Cancel</button>
+                            <button className="btn btn-warning rounded-pill px-4 fw-semibold" type="submit" disabled={saving}>
+                                {saving ? 'Saving...' : 'Save'}
+                            </button>
                         </>
                     ) : (
                         <button className="btn btn-warning rounded-pill px-5 fw-semibold" type="button" onClick={handleEdit}>Edit</button>

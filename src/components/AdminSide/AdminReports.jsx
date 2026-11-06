@@ -13,14 +13,21 @@ export function AdminReports() {
         async function fetchReservations() {
             try {
                 setLoading(true)
-                const querySnapshot = await getDocs(collection(db, 'reservations'))
-                const loadedReservations = querySnapshot.docs.map(docItem => ({
-                    id: docItem.id,
-                    ...docItem.data()
-                }))
+                const querySnapshot = await getDocs(collection(db, 'bookings'))
+                const loadedReservations = querySnapshot.docs.map(docItem => {
+                    const data = docItem.data()
+                    return {
+                        id: docItem.id,
+                        property: data.propertyName || data.resort || data.property || 'Resort Property',
+                        date: data.date || data.startDate || '',
+                        status: data.status || 'Pending',
+                        totalAmount: Number(data.total || data.totalAmount || data.amountPaid || 0),
+                        ...data,
+                    }
+                })
                 setReservations(loadedReservations)
             } catch (err) {
-                console.error('Error fetching reservations for reports:', err)
+                console.error('Error fetching bookings for reports:', err)
             } finally {
                 setLoading(false)
             }
@@ -32,41 +39,45 @@ export function AdminReports() {
 
     const filteredReservations = reservations.filter((item) => {
         const matchesProperty = !property || item.property === property
-        const matchesStartDate = !startDate || (item.startDate && item.startDate >= startDate)
-        const matchesEndDate = !endDate || (item.endDate && item.endDate <= endDate)
+        const matchesStartDate = !startDate || (item.date && item.date >= startDate)
+        const matchesEndDate = !endDate || (item.date && item.date <= endDate)
         return matchesProperty && matchesStartDate && matchesEndDate
     })
 
     const totalBookingsCount = filteredReservations.length
 
+    // Revenue counts confirmed/accepted bookings
     const totalRevenue = filteredReservations.reduce((sum, item) => {
-        const amountStr = String(item.totalAmount || item.amountPaid || '0').replace(/[^\d.]/g, '')
-        return sum + (parseFloat(amountStr) || 0)
+        const isConfirmed = ['confirmed', 'accepted'].includes(String(item.status).toLowerCase())
+        return sum + (isConfirmed ? (Number(item.totalAmount) || 0) : 0)
     }, 0)
 
     const statusCounts = {
         Confirmed: 0,
         Pending: 0,
-        Completed: 0,
-        Cancelled: 0,
-        Paid: 0
+        Rejected: 0,
+        Cancelled: 0
     }
 
     filteredReservations.forEach((item) => {
-        const status = item.status || 'Pending'
-        if (statusCounts[status] !== undefined) {
-            statusCounts[status]++
-        } else {
-            statusCounts[status] = 1
+        let rawStatus = String(item.status || 'Pending').toLowerCase()
+        let formattedStatus = 'Pending'
+        
+        if (['accepted', 'confirmed'].includes(rawStatus)) formattedStatus = 'Confirmed'
+        else if (rawStatus === 'rejected') formattedStatus = 'Rejected'
+        else if (rawStatus === 'cancelled') formattedStatus = 'Cancelled'
+        else formattedStatus = 'Pending'
+
+        if (statusCounts[formattedStatus] !== undefined) {
+            statusCounts[formattedStatus]++
         }
     })
 
     const bookingStatusesList = [
         { status: 'Confirmed', count: statusCounts.Confirmed },
         { status: 'Pending', count: statusCounts.Pending },
-        { status: 'Completed', count: statusCounts.Completed },
-        { status: 'Cancelled', count: statusCounts.Cancelled },
-        { status: 'Paid', count: statusCounts.Paid }
+        { status: 'Rejected', count: statusCounts.Rejected },
+        { status: 'Cancelled', count: statusCounts.Cancelled }
     ]
 
     const exportReport = () => {

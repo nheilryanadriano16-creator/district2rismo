@@ -1,35 +1,18 @@
+import { useState, useEffect } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 
-// temporary lang to paki delete pag may backend na 
-export const temporaryNotifications = [
-    {
-        id: 'temp-1',
-        title: 'Galilee Wonderland Resort',
-        message: 'How was your stay? Leave a review to share your experience.',
-        createdAt: '2026-10-21T09:00:00',
-        isRead: false,
-        actionLabel: 'Review Galilee Wonderland Resort now',
-    },
-    {
-        id: 'temp-2',
-        title: 'Galilee Wonderland Resort',
-        message: 'Your trip to our resort is coming up in 2 days. See you there!',
-        createdAt: '2026-10-18T09:00:00',
-        isRead: false,
-    },
-    {
-        id: 'temp-3',
-        title: 'Galilee Wonderland Resort',
-        message: 'Your payment of ₱2,740 for your 2Rismo reservation was successful.',
-        createdAt: '2026-10-16T09:00:00',
-        isRead: true,
-    },
-]
-
+const parseDateValue = (value) => {
+    if (!value) return new Date()
+    if (typeof value?.toDate === 'function') return value.toDate()
+    if (value?.seconds) return new Date(value.seconds * 1000)
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed
+}
 
 const formatDate = (value) => {
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return 'Date unavailable'
-
+    const date = parseDateValue(value)
     return new Intl.DateTimeFormat('en', {
         month: 'long',
         day: 'numeric',
@@ -38,9 +21,7 @@ const formatDate = (value) => {
 }
 
 const formatTimeAgo = (value) => {
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return ''
-
+    const date = parseDateValue(value)
     const minutes = Math.floor((Date.now() - date.getTime()) / 60000)
     if (minutes < 1) return 'Just now'
     if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`
@@ -52,7 +33,52 @@ const formatTimeAgo = (value) => {
     return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
-export const NotificationsN = ({ notifications = temporaryNotifications, loading = false, error = '', onOpenNotification }) => {
+export const NotificationsN = () => {
+    const { currentUser } = useAuth()
+    const [notifications, setNotifications] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState('')
+
+    useEffect(() => {
+        async function fetchNotifications() {
+            if (!currentUser?.uid) return
+            try {
+                setLoading(true)
+                const q = query(
+                    collection(db, 'notifications'),
+                    where('userId', '==', currentUser.uid)
+                )
+                const snapshot = await getDocs(q)
+                const loaded = snapshot.docs.map(docItem => ({
+                    id: docItem.id,
+                    ...docItem.data()
+                }))
+                loaded.sort((a, b) => parseDateValue(b.createdAt) - parseDateValue(a.createdAt))
+                setNotifications(loaded)
+            } catch (err) {
+                console.error('Error fetching notifications:', err)
+                setError('Failed to load notifications.')
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchNotifications()
+    }, [currentUser])
+
+    const handleMarkAsRead = async (notification) => {
+        if (notification.read) return
+        try {
+            const notifRef = doc(db, 'notifications', notification.id)
+            await updateDoc(notifRef, { read: true })
+            setNotifications(prev =>
+                prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+            )
+        } catch (err) {
+            console.error('Error marking notification as read:', err)
+        }
+    }
+
     const groups = notifications.reduce((result, notification) => {
         const label = formatDate(notification.createdAt)
         result[label] ??= []
@@ -73,14 +99,19 @@ export const NotificationsN = ({ notifications = temporaryNotifications, loading
                     <h2 className="small text-secondary mb-2">{date}</h2>
                     <div className="d-flex flex-column gap-3">
                         {dateNotifications.map((notification) => (
-                            <button key={notification.id} type="button" className={`notification-cardN btn text-start w-100 d-flex align-items-start justify-content-between gap-3 p-3 rounded-3 ${notification.isRead ? '' : 'unread'}`} onClick={() => onOpenNotification?.(notification)}>
+                            <button
+                                key={notification.id}
+                                type="button"
+                                className={`notification-cardN btn text-start w-100 d-flex align-items-start justify-content-between gap-3 p-3 rounded-3 ${notification.read ? '' : 'unread'}`}
+                                onClick={() => handleMarkAsRead(notification)}
+                            >
                                 <span className="min-w-0">
-                                    <span className="d-block fw-semibold">{notification.title}</span>
+                                    <span className="d-block fw-semibold">{notification.title || notification.name || 'Notification'}</span>
                                     <span className="d-block small">{notification.message}</span>
-                                    {notification.actionLabel && <span className="d-block small notification-actionN mt-2">{notification.actionLabel}</span>}
+                                    {notification.action && <span className="d-block small notification-actionN mt-2">{notification.action}</span>}
                                 </span>
                                 <span className="d-flex flex-column align-items-end flex-shrink-0">
-                                    {!notification.isRead && <span className="notification-unread-dotN rounded-circle mb-2" aria-label="Unread" />}
+                                    {!notification.read && <span className="notification-unread-dotN rounded-circle mb-2" aria-label="Unread" />}
                                     <span className="notification-timeN">{formatTimeAgo(notification.createdAt)}</span>
                                 </span>
                             </button>

@@ -1,4 +1,7 @@
 import { formatHostDate } from '../../utils/hostData'
+import { db } from '../../firebase'
+import { doc, updateDoc, collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore'
+import { useNotification } from '../../context/NotificationContext'
 
 export const HostBookingDetailsN = ({
     booking,
@@ -6,6 +9,8 @@ export const HostBookingDetailsN = ({
     onConfirm,
     onReject,
 }) => {
+    const { setNotification } = useNotification()
+
     const guest = booking?.userEmail || booking?.guest || 'Guest'
     const resort = booking?.propertyName || booking?.resort || 'Property'
     const reservationId = String(booking?.id || '').slice(-5).padStart(5, '0')
@@ -24,6 +29,9 @@ export const HostBookingDetailsN = ({
     const cottagesList = Array.isArray(booking?.cottages) 
         ? booking.cottages.map(c => c.name).join(', ') 
         : (booking?.cottages || 'None')
+
+    const isConfirmed = ['confirmed', 'accepted'].includes(String(status).toLowerCase())
+    const isRejectedOrCancelled = ['rejected', 'cancelled'].includes(String(status).toLowerCase())
 
     const reservationRows = [
         ['Reservation ID', `#${reservationId}`],
@@ -52,6 +60,125 @@ export const HostBookingDetailsN = ({
             <dd className="text-end mb-0">{value}</dd>
         </div>
     ))
+
+    const handleConfirmBooking = async () => {
+        try {
+            if (booking?.id) {
+                const bookingRef = doc(db, 'bookings', booking.id)
+                await updateDoc(bookingRef, { status: 'Confirmed' })
+
+                await addDoc(collection(db, 'notifications'), {
+                    userId: booking?.userId || null,
+                    userEmail: booking?.userEmail || null,
+                    title: 'Booking Confirmed!',
+                    message: `Your booking at ${resort} for ${startDate} (${sessionType}) has been confirmed by the host.`,
+                    bookingId: booking.id,
+                    read: false,
+                    createdAt: serverTimestamp(),
+                })
+
+                const conflictingQuery = query(
+                    collection(db, 'bookings'),
+                    where('propertyName', '==', resort),
+                    where('date', '==', booking.date || booking.startDate),
+                    where('session', '==', sessionType),
+                    where('status', '==', 'Pending')
+                )
+
+                const conflictingSnapshot = await getDocs(conflictingQuery)
+                for (const conflictDoc of conflictingSnapshot.docs) {
+                    if (conflictDoc.id !== booking.id) {
+                        const conflictData = conflictDoc.data()
+                        await updateDoc(doc(db, 'bookings', conflictDoc.id), { status: 'Rejected' })
+
+                        await addDoc(collection(db, 'notifications'), {
+                            userId: conflictData.userId || null,
+                            userEmail: conflictData.userEmail || null,
+                            title: 'Booking Unavailable',
+                            message: `Your booking request at ${resort} for ${startDate} (${sessionType}) was automatically declined because the slot was assigned to another reservation.`,
+                            bookingId: conflictDoc.id,
+                            read: false,
+                            createdAt: serverTimestamp(),
+                        })
+                    }
+                }
+            }
+
+            setNotification({
+                type: 'success',
+                message: 'Booking confirmed and user notified! Conflicting pending slots were automatically updated.',
+            })
+            onConfirm?.()
+        } catch (error) {
+            console.error('Error confirming booking:', error)
+            setNotification({
+                type: 'error',
+                message: 'Failed to confirm booking and send notification.',
+            })
+        }
+    }
+
+    const handleRejectBooking = async () => {
+        try {
+            if (booking?.id) {
+                const bookingRef = doc(db, 'bookings', booking.id)
+                await updateDoc(bookingRef, { status: 'Rejected' })
+
+                await addDoc(collection(db, 'notifications'), {
+                    userId: booking?.userId || null,
+                    userEmail: booking?.userEmail || null,
+                    title: 'Booking Declined',
+                    message: `Your booking request at ${resort} for ${startDate} (${sessionType}) was rejected by the host.`,
+                    bookingId: booking.id,
+                    read: false,
+                    createdAt: serverTimestamp(),
+                })
+            }
+
+            setNotification({
+                type: 'success',
+                message: 'Booking rejected and notification sent to the guest.',
+            })
+            onReject?.()
+        } catch (error) {
+            console.error('Error rejecting booking:', error)
+            setNotification({
+                type: 'error',
+                message: 'Failed to reject booking and send notification.',
+            })
+        }
+    }
+
+    const handleCancelBooking = async () => {
+        try {
+            if (booking?.id) {
+                const bookingRef = doc(db, 'bookings', booking.id)
+                await updateDoc(bookingRef, { status: 'Cancelled' })
+
+                await addDoc(collection(db, 'notifications'), {
+                    userId: booking?.userId || null,
+                    userEmail: booking?.userEmail || null,
+                    title: 'Booking Cancelled',
+                    message: `Your confirmed booking at ${resort} for ${startDate} (${sessionType}) has been cancelled by the host.`,
+                    bookingId: booking.id,
+                    read: false,
+                    createdAt: serverTimestamp(),
+                })
+            }
+
+            setNotification({
+                type: 'success',
+                message: 'Booking cancelled and notification sent to the guest.',
+            })
+            onReject?.()
+        } catch (error) {
+            console.error('Error cancelling booking:', error)
+            setNotification({
+                type: 'error',
+                message: 'Failed to cancel booking.',
+            })
+        }
+    }
 
     return (
         <section className="host-booking-detailN container-fluid p-3 p-md-4">
@@ -113,24 +240,38 @@ export const HostBookingDetailsN = ({
             </section>
 
             <div className="row justify-content-end g-2 mt-1">
-                <div className="col-6 col-sm-5 col-md-4">
-                    <button
-                        type="button"
-                        className="btn host-booking-rejectN rounded-pill w-100"
-                        onClick={onReject}
-                    >
-                        Reject Booking
-                    </button>
-                </div>
-                <div className="col-6 col-sm-5 col-md-4">
-                    <button
-                        type="button"
-                        className="btn btn-warning rounded-pill w-100"
-                        onClick={onConfirm}
-                    >
-                        Confirm Booking
-                    </button>
-                </div>
+                {isConfirmed ? (
+                    <div className="col-12 col-sm-6 col-md-4">
+                        <button
+                            type="button"
+                            className="btn btn-outline-danger rounded-pill w-100"
+                            onClick={handleCancelBooking}
+                        >
+                            Cancel Booking
+                        </button>
+                    </div>
+                ) : !isRejectedOrCancelled ? (
+                    <>
+                        <div className="col-6 col-sm-5 col-md-4">
+                            <button
+                                type="button"
+                                className="btn host-booking-rejectN rounded-pill w-100"
+                                onClick={handleRejectBooking}
+                            >
+                                Reject Booking
+                            </button>
+                        </div>
+                        <div className="col-6 col-sm-5 col-md-4">
+                            <button
+                                type="button"
+                                className="btn btn-warning rounded-pill w-100"
+                                onClick={handleConfirmBooking}
+                            >
+                                Confirm Booking
+                            </button>
+                        </div>
+                    </>
+                ) : null}
             </div>
         </section>
     )

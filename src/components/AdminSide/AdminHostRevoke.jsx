@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import Modal from 'react-bootstrap/Modal'
-import { doc, updateDoc } from 'firebase/firestore'
+import { doc, updateDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 
 const reasons = [
@@ -38,6 +38,15 @@ export function AdminHostRevoke({ show, host, onHide, onConfirm }) {
                 status: 'Unverified',
                 revocationReason: reason,
                 revokedAt: new Date().toISOString()
+            })
+
+            await addDoc(collection(db, 'notifications'), {
+                userId: host.id,
+                userEmail: host.email || null,
+                title: 'Verification Revoked',
+                message: `Your host verification status has been revoked. Reason: ${reason}`,
+                read: false,
+                createdAt: serverTimestamp(),
             })
 
             onConfirm?.({ host, reason, notifyHost })

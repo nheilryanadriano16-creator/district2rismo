@@ -1,17 +1,62 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { collection, query, where, getDocs } from 'firebase/firestore'
+import { db } from '../../firebase'
 import resortImage from '../../images/Baliwag Featured.png'
 
-export const temporaryReservations = [
-    { id: 'reservation-1', resortName: 'Galilee Wonderland Resort', location: 'Bustos, Bulacan', image: resortImage, session: 'Day Swimming', date: '2026-10-27', cottage: 'Cottage 1', guests: '6 Adults, 3 Kids, 0 Seniors', totalPrice: 2740, status: 'Confirmed' },
-    { id: 'reservation-2', resortName: 'Galilee Wonderland Resort', location: 'Bustos, Bulacan', image: resortImage, session: 'Day Swimming', date: '2026-10-19', cottage: 'Cottage 1', guests: '6 Adults, 3 Kids, 0 Seniors', totalPrice: 2740, status: 'Completed' },
-    { id: 'reservation-3', resortName: 'Galilee Wonderland Resort', location: 'Bustos, Bulacan', image: resortImage, session: 'Day Swimming', date: '2026-10-19', cottage: 'Cottage 1', guests: '6 Adults, 3 Kids, 0 Seniors', totalPrice: 2740, status: 'Cancelled' },
-]
+const filters = ['All', 'Completed', 'Confirmed', 'Pending', 'Cancelled']
 
-const filters = ['All', 'Completed', 'Confirmed', 'Cancelled']
-
-export const MyReservationN = ({ reservations = temporaryReservations, loading = false, error = '' }) => {
+export const MyReservationN = () => {
+    const { currentUser } = useAuth()
+    const [reservations, setReservations] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState('')
     const [activeFilter, setActiveFilter] = useState('All')
-    const visibleReservations = activeFilter === 'All' ? reservations : reservations.filter((reservation) => reservation.status.toLowerCase() === activeFilter.toLowerCase())
+
+    useEffect(() => {
+        async function fetchUserReservations() {
+            if (!currentUser?.uid) return
+            try {
+                setLoading(true)
+                const q = query(
+                    collection(db, 'bookings'),
+                    where('userId', '==', currentUser.uid)
+                )
+                const snapshot = await getDocs(q)
+                const loaded = snapshot.docs.map(docItem => {
+                    const data = docItem.data()
+                    const cottagesList = Array.isArray(data.cottages)
+                        ? data.cottages.map(c => c.name).join(', ')
+                        : (data.cottages || 'Standard Room')
+
+                    return {
+                        id: docItem.id,
+                        resortName: data.propertyName || 'Resort Property',
+                        location: data.location || 'Bustos, Bulacan',
+                        image: data.image || resortImage,
+                        session: data.session || 'Day Tour',
+                        date: data.date || '',
+                        cottage: cottagesList,
+                        guests: `${data.guestsCount || 1} Guests`,
+                        totalPrice: data.total || 0,
+                        status: data.status || 'Pending'
+                    }
+                })
+                setReservations(loaded)
+            } catch (err) {
+                console.error('Error fetching user reservations:', err)
+                setError('Failed to load reservations.')
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchUserReservations()
+    }, [currentUser])
+
+    const visibleReservations = activeFilter === 'All'
+        ? reservations
+        : reservations.filter((res) => res.status.toLowerCase() === activeFilter.toLowerCase())
 
     return (
         <section className="reservations-panelN container-fluid p-3 p-md-4 p-lg-5 pt-0 text-white">
@@ -19,7 +64,17 @@ export const MyReservationN = ({ reservations = temporaryReservations, loading =
                 <h1 className="h2 fw-bold reservations-titleN mb-3">My Reservations</h1>
 
                 <div className="d-flex flex-wrap gap-2 mb-4" role="group" aria-label="Filter reservations">
-                    {filters.map((filter) => <button key={filter} type="button" className={`btn btn-sm rounded-pill px-4 ${activeFilter === filter ? 'btn-warning' : 'btn-outline-warning'}`} aria-pressed={activeFilter === filter} onClick={() => setActiveFilter(filter)}>{filter}</button>)}
+                    {filters.map((filter) => (
+                        <button
+                            key={filter}
+                            type="button"
+                            className={`btn btn-sm rounded-pill px-4 ${activeFilter === filter ? 'btn-warning' : 'btn-outline-warning'}`}
+                            aria-pressed={activeFilter === filter}
+                            onClick={() => setActiveFilter(filter)}
+                        >
+                            {filter}
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -38,8 +93,8 @@ export const MyReservationN = ({ reservations = temporaryReservations, loading =
                                         <div className="min-w-0">
                                             <h2 className="h5 mb-1">{reservation.resortName}</h2>
                                             <p className="reservations-locationN fw-semibold mb-1">{reservation.location}</p>
-                                            <p className="small mb-0">Payment: ₱{Number(reservation.totalPrice).toLocaleString('en-PH', { minimumFractionDigits: 2 })}<br />Total Paid: ₱{Number(reservation.totalPrice).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
-                                            <span className={`badge rounded-pill mt-3 ${reservation.status.toLowerCase() === 'confirmed' ? 'reservation-statusN' : 'reservation-statusN'}`}>{reservation.status}</span>
+                                            <p className="small mb-0">Total: ₱{Number(reservation.totalPrice).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
+                                            <span className="badge rounded-pill mt-3 reservation-statusN">{reservation.status}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -47,7 +102,7 @@ export const MyReservationN = ({ reservations = temporaryReservations, loading =
                                     <div className="reservation-detailsN p-3 h-100">
                                         <p className="small mb-2">Details:</p>
                                         <div className="d-flex justify-content-between gap-3"><span>Session</span><span className="text-end">{reservation.session}</span></div>
-                                        <div className="d-flex justify-content-between gap-3"><span>Date</span><span className="text-end">{new Date(`${reservation.date}T00:00:00`).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })}</span></div>
+                                        <div className="d-flex justify-content-between gap-3"><span>Date</span><span className="text-end">{reservation.date ? new Date(`${reservation.date}T00:00:00`).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }) : '—'}</span></div>
                                         <div className="d-flex justify-content-between gap-3"><span>Cottage</span><span className="text-end">{reservation.cottage}</span></div>
                                         <div className="d-flex justify-content-between gap-3"><span>Guest</span><span className="text-end">{reservation.guests}</span></div>
                                     </div>
@@ -56,6 +111,7 @@ export const MyReservationN = ({ reservations = temporaryReservations, loading =
                         </article>
                     ))}
                 </div>
-            )}  </section>
+            )}
+        </section>
     )
 }

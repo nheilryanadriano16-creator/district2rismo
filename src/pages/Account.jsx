@@ -1,14 +1,17 @@
 ﻿import { useEffect, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import NavBarDetails from '../components/NavBarDetails.jsx'
 import Footer from '../components/Footer.jsx'
 import { SideBarN } from '../components/Account/SideBarN.jsx'
 import { EditProfileN } from '../components/Account/EditProfileN.jsx'
-import { NotificationsN, temporaryNotifications } from '../components/Account/NotificationsN.jsx'
+import { NotificationsN } from '../components/Account/NotificationsN.jsx'
 import { MyReservationN } from '../components/Account/MyReservationN.jsx'
 import { DestinationToReviewN } from '../components/Account/DestinationToReviewN.jsx'
 import { SettingsN } from '../components/Account/SettingsN.jsx'
 import { HelpN } from '../components/Account/HelpN.jsx'
+import { useAuth } from '../context/AuthContext'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { db } from '../firebase'
 
 const mobileTitles = {
     Profile: 'My Profile',
@@ -21,12 +24,13 @@ const mobileTitles = {
 
 function Account() {
     const location = useLocation()
+    const navigate = useNavigate()
+    const { currentUser, logout } = useAuth()
     const requestedSection = location.state?.section
 
     const [selectedSection, setSelectedSection] = useState(requestedSection || 'Profile')
-    const [mobileSectionOpen, setMobileSectionOpen] = useState(
-        requestedSection === 'Notifications'
-    )
+    const [mobileSectionOpen, setMobileSectionOpen] = useState(Boolean(requestedSection))
+    const [unreadCount, setUnreadCount] = useState(0)
 
     useEffect(() => {
         if (location.state?.section) {
@@ -34,11 +38,35 @@ function Account() {
             setMobileSectionOpen(true)
         }
     }, [location.state])
-    const unreadNotificationCount = temporaryNotifications.length
+
+    useEffect(() => {
+        if (!currentUser?.uid) return
+
+        const q = query(
+            collection(db, 'notifications'),
+            where('userId', '==', currentUser.uid),
+            where('read', '==', false)
+        )
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setUnreadCount(snapshot.size)
+        })
+
+        return () => unsubscribe()
+    }, [currentUser])
 
     const handleSectionSelect = (section) => {
         setSelectedSection(section)
         setMobileSectionOpen(true)
+    }
+
+    const handleLogout = async () => {
+        try {
+            await logout()
+            navigate('/')
+        } catch (error) {
+            console.error('Logout error:', error)
+        }
     }
 
     return (
@@ -50,7 +78,8 @@ function Account() {
                         <SideBarN
                             activeSection={selectedSection}
                             onSelect={handleSectionSelect}
-                            notificationCount={unreadNotificationCount}
+                            onLogout={handleLogout}
+                            notificationCount={unreadCount}
                         />
                     </div>
                     <div className={`col-12 col-lg-9 ${mobileSectionOpen ? '' : 'd-none d-lg-block'}`}>
@@ -69,7 +98,7 @@ function Account() {
                         )}
                         <div className="account-mobile-contentN">
                             {selectedSection === 'Notifications'
-                                ? <NotificationsN notifications={temporaryNotifications} />
+                                ? <NotificationsN />
                                 : selectedSection === 'My Reservation'
                                     ? <MyReservationN />
                                     : selectedSection === 'Destinations to Review'

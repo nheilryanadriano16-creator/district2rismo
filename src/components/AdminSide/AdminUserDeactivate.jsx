@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import Modal from 'react-bootstrap/Modal'
-import { doc, updateDoc, deleteField } from 'firebase/firestore'
+import { doc, updateDoc, deleteField, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 
 export function AdminUserDeactivate({ show, user, onHide, onConfirm }) {
@@ -38,11 +38,29 @@ export function AdminUserDeactivate({ show, user, onHide, onConfirm }) {
                     deactivationReason: deleteField(),
                     deactivatedAt: deleteField()
                 })
+
+                await addDoc(collection(db, 'notifications'), {
+                    userId: user.id,
+                    userEmail: user.email || null,
+                    title: 'Account Reactivated',
+                    message: 'Your account has been reactivated. You can now log in and access all services.',
+                    read: false,
+                    createdAt: serverTimestamp(),
+                })
             } else {
                 await updateDoc(userRef, {
                     status: 'Deactivated',
                     deactivationReason: reason,
                     deactivatedAt: new Date().toISOString()
+                })
+
+                await addDoc(collection(db, 'notifications'), {
+                    userId: user.id,
+                    userEmail: user.email || null,
+                    title: 'Account Deactivated',
+                    message: `Your account has been deactivated by an administrator. Reason: ${reason}`,
+                    read: false,
+                    createdAt: serverTimestamp(),
                 })
             }
 

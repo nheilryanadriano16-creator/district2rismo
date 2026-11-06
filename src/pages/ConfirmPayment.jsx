@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom'
 import { useLocation } from 'react-router-dom'
 import StripePaymentN from '../components/StripePaymentN.jsx'
 import PaymenSuccessfulStripe from '../components/PaymenSuccessfulStripe.jsx'
-import { db } from '../firebase' // Adjust path to your firebase config if needed
+import { db } from '../firebase'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
 
@@ -74,7 +74,6 @@ function ConfirmPayment() {
                 })
                 setShowPaymentSuccess(data.payment_status === 'paid')
                 
-                // Save to Firebase upon successful Stripe verification
                 if (data.payment_status === 'paid' && booking) {
                     saveBookingToFirebase(booking)
                 }
@@ -117,7 +116,7 @@ function ConfirmPayment() {
                 total: bookingData?.total || 0,
                 payOption,
                 method,
-                status: 'Confirmed',
+                status: 'Pending',
                 createdAt: serverTimestamp(),
             })
         } catch (err) {
@@ -140,7 +139,6 @@ function ConfirmPayment() {
     const halfTotal = total / 2
 
     const rawGuestCount = Number(booking.guestsCount) || 1
-    // Simplified single guest count object for Stripe and Firebase compatibility
     const normalizedGuests = {
         total: rawGuestCount
     }
@@ -185,7 +183,6 @@ function ConfirmPayment() {
 
                     <div className='col-12 col-lg-7'>
 
-                        {/* STEP 1 */}
                         {step === 1 ? (
                             <div className='pay-card mb-3'>
                                 <h2 className='step-title'>Choose when to pay</h2>
@@ -238,7 +235,6 @@ function ConfirmPayment() {
                             </div>
                         )}
 
-                        {/* STEP 2 */}
                         {step === 2 ? (
                             <div className='pay-card mb-3'>
                                 <h2 className='step-title'>2. Add a payment method</h2>
@@ -273,7 +269,6 @@ function ConfirmPayment() {
                             </div>
                         )}
 
-                        {/* STEP 3 */}
                         {step === 3 ? (
                             <div className='pay-card'>
                                 <h2 className='step-title'>3. Review your reservation</h2>

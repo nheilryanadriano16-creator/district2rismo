@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { AdminNavbar } from './AdminNavbar.jsx'
 import { AdminHostRevoke } from './AdminHostRevoke.jsx'
 import { AdminHostDeactivate } from './AdminHostDeactivate.jsx'
-import { doc, updateDoc, deleteField } from 'firebase/firestore'
+import { doc, updateDoc, deleteField, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 
 export function AdminHostDetails({
@@ -37,6 +37,16 @@ export function AdminHostDetails({
                 revocationReason: deleteField(),
                 revokedAt: deleteField()
             })
+
+            await addDoc(collection(db, 'notifications'), {
+                userId: host.id,
+                userEmail: host.email || null,
+                title: 'Host Verification Approved',
+                message: 'Your host account status has been set to Verified. You can now list and manage properties.',
+                read: false,
+                createdAt: serverTimestamp(),
+            })
+
             setCurrentStatus('Verified')
         } catch (err) {
             console.error('Error verifying host:', err)

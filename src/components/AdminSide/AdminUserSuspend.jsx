@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import Modal from 'react-bootstrap/Modal'
-import { doc, updateDoc, deleteField } from 'firebase/firestore'
+import { doc, updateDoc, deleteField, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 
 const suspensionReasons = [
@@ -53,6 +53,15 @@ export function AdminUserSuspend({ show, user, onHide, onConfirm }) {
                     suspensionDuration: deleteField(),
                     suspendedAt: deleteField()
                 })
+
+                await addDoc(collection(db, 'notifications'), {
+                    userId: user.id,
+                    userEmail: user.email || null,
+                    title: 'Suspension Lifted',
+                    message: 'The suspension on your account has been lifted. You can now access your account.',
+                    read: false,
+                    createdAt: serverTimestamp(),
+                })
             } else {
                 await updateDoc(userRef, {
                     status: 'Suspended',
@@ -60,6 +69,15 @@ export function AdminUserSuspend({ show, user, onHide, onConfirm }) {
                     suspensionReason: reason,
                     suspensionDuration: duration,
                     suspendedAt: new Date().toISOString()
+                })
+
+                await addDoc(collection(db, 'notifications'), {
+                    userId: user.id,
+                    userEmail: user.email || null,
+                    title: 'Account Suspended',
+                    message: `Your account has been suspended for ${duration}. Category: ${selectedReason}. Reason: ${reason}`,
+                    read: false,
+                    createdAt: serverTimestamp(),
                 })
             }
 

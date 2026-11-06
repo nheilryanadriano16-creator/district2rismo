@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../../firebase'
 
 const filters = ['All', 'Pending', 'Confirmed', 'Rejected']
@@ -34,7 +34,6 @@ export const HostBookingsN = ({ onViewBooking }) => {
         async function loadBookings() {
             if (!currentUser?.uid) return
             try {
-                // Fetch bookings directly from Firestore 'bookings' collection
                 const querySnapshot = await getDocs(collection(db, 'bookings'))
                 const loadedBookings = querySnapshot.docs.map(doc => {
                     const data = doc.data()
@@ -44,15 +43,13 @@ export const HostBookingsN = ({ onViewBooking }) => {
                         resort: data.propertyName || data.resort || 'Resort Property',
                         date: data.date || data.startDate || '',
                         guests: data.guestsCount || data.guests || 1,
-                        status: data.status || 'Confirmed',
-                        filterStatus: data.status || 'Confirmed',
+                        status: data.status || 'Pending',
                         ...data,
                     }
                 })
 
                 if (!isMounted) return
 
-                // Extract unique properties for the dropdown
                 const uniqueProps = [...new Set(loadedBookings.map(b => b.resort).filter(Boolean))]
                 setProperties(uniqueProps.map(name => ({ id: name, name })))
                 setBookings(loadedBookings)
@@ -72,7 +69,10 @@ export const HostBookingsN = ({ onViewBooking }) => {
     }, [currentUser])
 
     const visibleBookings = bookings.filter((booking) => {
-        const matchesFilter = activeFilter === 'All' || booking.status.toLowerCase() === activeFilter.toLowerCase()
+        const bookingStatus = String(booking.status || 'Pending').toLowerCase()
+        const currentFilter = activeFilter.toLowerCase()
+
+        const matchesFilter = currentFilter === 'all' || bookingStatus === currentFilter
         const matchesSearch = booking.guest.toLowerCase().includes(search.toLowerCase())
         const matchesProperty = !selectedProperty || booking.resort === selectedProperty
         return matchesFilter && matchesSearch && matchesProperty
@@ -182,3 +182,5 @@ export const HostBookingsN = ({ onViewBooking }) => {
         </section>
     )
 }
+
+export default HostBookingsN

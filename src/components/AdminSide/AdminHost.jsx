@@ -24,7 +24,6 @@ export function AdminHost({ onViewDetails }) {
                     }))
                     .filter(user => user.role === 'host')
 
-                console.log("Fetched host list from users:", hostList)
                 setHosts(hostList)
             } catch (err) {
                 console.error('Error fetching hosts from Firestore:', err)

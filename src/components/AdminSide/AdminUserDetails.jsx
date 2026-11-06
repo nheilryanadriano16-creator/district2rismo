@@ -2,7 +2,7 @@ import { useState } from 'react'
 import resortImage from '../../images/Bustos Hero.png'
 import { AdminUserDeactivate } from './AdminUserDeactivate.jsx'
 import { AdminUserSuspend } from './AdminUserSuspend.jsx'
-import { doc, updateDoc, deleteField } from 'firebase/firestore'
+import { doc, updateDoc, deleteField, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 
 const bookingFilters = ['All', 'Completed', 'Confirmed', 'Canceled']
@@ -45,8 +45,22 @@ export function AdminUserDetail({ user, onBack, onDeactivateUser }) {
             await updateDoc(userRef, {
                 status: 'Active',
                 deactivationReason: deleteField(),
-                deactivatedAt: deleteField()
+                deactivatedAt: deleteField(),
+                suspensionCategory: deleteField(),
+                suspensionReason: deleteField(),
+                suspensionDuration: deleteField(),
+                suspendedAt: deleteField()
             })
+
+            await addDoc(collection(db, 'notifications'), {
+                userId: user.id,
+                userEmail: user.email || null,
+                title: 'Account Status Updated',
+                message: 'Your account is now active. You have full access to District 2rismo.',
+                read: false,
+                createdAt: serverTimestamp(),
+            })
+
             setCurrentStatus('Active')
         } catch (err) {
             console.error('Error reactivating user:', err)
@@ -263,8 +277,8 @@ export function AdminUserDetail({ user, onBack, onDeactivateUser }) {
                         className="btn btn-warning rounded-pill admin-user-account-buttonN"
                         onClick={() => setShowSuspend(true)}
                     >
-                    Suspend Account
-                </button>
+                        Suspend Account
+                    </button>
                 )}
             </div>
 
@@ -272,8 +286,8 @@ export function AdminUserDetail({ user, onBack, onDeactivateUser }) {
                 show={showDeactivate}
                 user={user}
                 onHide={() => setShowDeactivate(false)}
-                onConfirm={(reason) => {
-                    onDeactivateUser?.(reason)
+                onConfirm={(info) => {
+                    onDeactivateUser?.(info)
                     setCurrentStatus('Deactivated')
                 }}
             />
@@ -281,7 +295,9 @@ export function AdminUserDetail({ user, onBack, onDeactivateUser }) {
                 show={showSuspend}
                 user={user}
                 onHide={() => setShowSuspend(false)}
-                
+                onConfirm={(info) => {
+                    setCurrentStatus(info.action === 'unsuspend' ? 'Active' : 'Suspended')
+                }}
             />
         </section>
     )

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import Modal from 'react-bootstrap/Modal'
-import { doc, updateDoc, deleteField } from 'firebase/firestore'
+import { doc, updateDoc, deleteField, collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 
 export function AdminHostDeactivate({ show, host, onHide, onConfirm }) {
@@ -27,17 +27,36 @@ export function AdminHostDeactivate({ show, host, onHide, onConfirm }) {
         try {
             setLoading(true)
             const hostRef = doc(db, 'users', host.id)
+
             if (isDeactivated) {
                 await updateDoc(hostRef, {
                     status: 'Active',
                     deactivationReason: deleteField(),
                     deactivatedAt: deleteField()
                 })
+
+                await addDoc(collection(db, 'notifications'), {
+                    userId: host.id,
+                    userEmail: host.email || null,
+                    title: 'Host Account Reactivated',
+                    message: 'Your host account has been reactivated. You can now log in and manage your listings.',
+                    read: false,
+                    createdAt: serverTimestamp(),
+                })
             } else {
                 await updateDoc(hostRef, {
                     status: 'Deactivated',
                     deactivationReason: reason,
                     deactivatedAt: new Date().toISOString()
+                })
+
+                await addDoc(collection(db, 'notifications'), {
+                    userId: host.id,
+                    userEmail: host.email || null,
+                    title: 'Host Account Deactivated',
+                    message: `Your host account has been deactivated. Reason: ${reason}`,
+                    read: false,
+                    createdAt: serverTimestamp(),
                 })
             }
 
