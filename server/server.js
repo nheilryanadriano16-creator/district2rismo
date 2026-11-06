@@ -9,11 +9,13 @@ const { getAuth } = require('firebase-admin/auth')
 const { FieldValue, getFirestore } = require('firebase-admin/firestore')
 const { v2: cloudinary } = require('cloudinary')
 const path = require('path')
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'rismo-9c0ce'
 
 if (!getApps().length) {
     try {
         initializeApp({
-            credential: applicationDefault()
+            credential: applicationDefault(),
+            projectId: FIREBASE_PROJECT_ID,
         })
     } catch (error) {
         console.error('Firebase Admin initialization failed:', error.message)
@@ -84,8 +86,17 @@ const requireFirebaseAuth = async (req, res, next) => {
     try {
         req.firebaseUser = await getAuth().verifyIdToken(token)
         return next()
-    } catch {
-        return res.status(401).json({ error: 'Your sign-in expired. Sign in again and retry the upload.' })
+    } catch (error) {
+        console.error('Firebase upload token verification failed:', error.code || error.message)
+        if (error.code === 'auth/id-token-expired') {
+            return res.status(401).json({ error: 'Your sign-in expired. Sign in again and retry the upload.' })
+        }
+        if (error.code === 'auth/argument-error') {
+            return res.status(401).json({
+                error: `The website and upload server are using different Firebase projects. Set FIREBASE_PROJECT_ID to ${FIREBASE_PROJECT_ID} on Render.`,
+            })
+        }
+        return res.status(401).json({ error: 'The upload server could not verify your sign-in. Check its Firebase project configuration.' })
     }
 }
 
