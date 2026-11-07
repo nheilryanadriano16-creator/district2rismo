@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { collection, getDocs } from 'firebase/firestore'
+import { db } from '../firebase'
 
 const peso = (n) =>
     (Number(n) || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })
@@ -25,22 +27,37 @@ const toDateKey = (value) => {
 }
 
 const getBookedDates = async (property) => {
-    const apiUrl = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:4242'
-    const params = new URLSearchParams()
-    if (property?.id) params.set('propertyId', property.id)
-    if (property?.name) params.set('propertyName', property.name)
+    const snapshot = await getDocs(collection(db, 'bookings'))
+    const propertyName = String(property?.name || '').trim().toLowerCase()
+    const inactiveStatuses = new Set(['rejected', 'cancelled', 'canceled', 'failed', 'expired'])
+    const bookedDates = new Set()
 
-    const availabilityUrl = new URL('/booked-dates', apiUrl)
-    availabilityUrl.search = params.toString()
-    const response = await fetch(availabilityUrl)
-    const data = await response.json()
-    if (!response.ok) {
-        throw new Error(data.error || `Could not load date availability (${response.status}).`)
-    }
-    if (!Array.isArray(data.bookedDates)) {
-        throw new Error('The availability service returned invalid data.')
-    }
-    return new Set(data.bookedDates)
+    snapshot.forEach((bookingDoc) => {
+        const booking = bookingDoc.data()
+        const bookingPropertyIds = [
+            booking.propertyId,
+            booking.propertyUid,
+            booking.placeId,
+            booking.listingId,
+            booking.resortId,
+            booking.property?.id,
+        ].filter(Boolean)
+        const bookingPropertyNames = [
+            booking.propertyName,
+            booking.resortName,
+            typeof booking.resort === 'string' ? booking.resort : '',
+            booking.property?.name,
+        ].map((name) => String(name || '').trim().toLowerCase()).filter(Boolean)
+        const matchesProperty = (property?.id && bookingPropertyIds.includes(property.id))
+            || (propertyName && bookingPropertyNames.includes(propertyName))
+        const status = String(booking.status || 'Pending').toLowerCase()
+        if (!matchesProperty || inactiveStatuses.has(status)) return
+
+        const date = toDateKey(booking.date || booking.startDate)
+        if (date) bookedDates.add(date)
+    })
+
+    return bookedDates
 }
 
 function BookingCard({ cottages = [], resort, property }) {
