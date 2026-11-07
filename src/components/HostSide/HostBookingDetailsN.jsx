@@ -2,8 +2,9 @@ import { useState } from 'react'
 import Modal from 'react-bootstrap/Modal'
 import { formatHostDate } from '../../utils/hostData'
 import { db } from '../../firebase'
-import { doc, updateDoc, collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore'
+import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore'
 import { useNotification } from '../../context/NotificationContext'
+import { updateBookingStatusAndAvailability } from '../../utils/bookingAvailability'
 
 export const HostBookingDetailsN = ({
     booking,
@@ -72,8 +73,7 @@ export const HostBookingDetailsN = ({
         }
 
         try {
-            const bookingRef = doc(db, 'bookings', booking.id)
-            await updateDoc(bookingRef, { status: 'Confirmed' })
+            await updateBookingStatusAndAvailability(booking.id, 'Confirmed')
 
             await addDoc(collection(db, 'notifications'), {
                 userId: booking?.userId || null,
@@ -98,7 +98,7 @@ export const HostBookingDetailsN = ({
             for (const conflictDoc of conflictingSnapshot.docs) {
                 if (conflictDoc.id !== booking.id) {
                     const conflictData = conflictDoc.data()
-                    await updateDoc(doc(db, 'bookings', conflictDoc.id), { status: 'Rejected' })
+                    await updateBookingStatusAndAvailability(conflictDoc.id, 'Rejected')
 
                     await addDoc(collection(db, 'notifications'), {
                         userId: conflictData.userId || null,
@@ -122,7 +122,7 @@ export const HostBookingDetailsN = ({
             console.error('Error confirming booking:', error)
             setNotification({
                 type: 'error',
-                message: 'Failed to confirm booking and send notification.',
+                message: error.message || 'Failed to confirm booking and send notification.',
             })
             return false
         }
@@ -135,8 +135,7 @@ export const HostBookingDetailsN = ({
         }
 
         try {
-            const bookingRef = doc(db, 'bookings', booking.id)
-            await updateDoc(bookingRef, { status: 'Rejected' })
+            await updateBookingStatusAndAvailability(booking.id, 'Rejected')
 
             await addDoc(collection(db, 'notifications'), {
                 userId: booking?.userId || null,
@@ -171,8 +170,7 @@ export const HostBookingDetailsN = ({
         }
 
         try {
-            const bookingRef = doc(db, 'bookings', booking.id)
-            await updateDoc(bookingRef, { status: 'Cancelled' })
+            await updateBookingStatusAndAvailability(booking.id, 'Cancelled')
 
             await addDoc(collection(db, 'notifications'), {
                 userId: booking?.userId || null,

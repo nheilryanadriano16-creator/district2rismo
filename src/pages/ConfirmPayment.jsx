@@ -356,7 +356,7 @@ function ConfirmPayment() {
                                 <>
                                     <h4 className='field-label mt-3'>Bedrooms / Cottages</h4>
                                     {booking.cottages.map((c, idx) => (
-                                        <div key={idx} className='guest-row d-flex justify-content-between align-items-center small text-muted'>
+                                        <div key={idx} className='guest-row d-flex justify-content-between align-items-center small text-white'>
                                             <span>• {c.name}</span>
                                             <span>{money(c.price)}</span>
                                         </div>

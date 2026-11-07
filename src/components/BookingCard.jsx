@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { collection, doc, getDocs, onSnapshot, query, runTransaction, where } from 'firebase/firestore'
+import { db } from '../firebase'
+import { getAvailabilityDocumentId } from '../utils/bookingAvailability'
 
 const peso = (n) =>
     (Number(n) || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })
@@ -26,11 +29,124 @@ const toDateKey = (value) => {
 
 function BookingCard({ cottages = [], resort, property }) {
     const navigate = useNavigate()
-    const { currentUser } = useAuth()
+    const { currentUser, userRole } = useAuth()
     const [today] = useState(() => toDateKey(new Date()))
+    const [bookedDates, setBookedDates] = useState(new Set())
+    const [availabilityLoading, setAvailabilityLoading] = useState(true)
+    const [availabilityError, setAvailabilityError] = useState('')
     const [date, setDate] = useState(today)
+    const propertyId = property?.id
+    const currentUserId = currentUser?.uid
     const tours = property?.tourSettings || {}
     const defaultBasePrice = Number(property?.price || property?.rate || 15000)
+
+    useEffect(() => {
+        let active = true
+        let unsubscribeAvailability = () => {}
+
+        function loadAvailability() {
+            setAvailabilityLoading(true)
+            setAvailabilityError('')
+            setBookedDates(new Set())
+
+            if (!propertyId) {
+                setAvailabilityError('This property is missing its ID, so availability cannot be checked.')
+                setAvailabilityLoading(false)
+                return
+            }
+
+            if (!currentUserId) {
+                setBookedDates(new Set())
+                setAvailabilityLoading(false)
+                return
+            }
+
+            const handleAvailabilitySnapshot = (availabilitySnapshot) => {
+                const dates = new Set(availabilitySnapshot.docs
+                    .map((availabilityDoc) => toDateKey(availabilityDoc.data().date))
+                    .filter(Boolean))
+                setBookedDates(dates)
+                setAvailabilityLoading(false)
+                setAvailabilityError('')
+            }
+
+            const handleAvailabilityError = (error) => {
+                console.error('Unable to listen for property availability:', error)
+                setAvailabilityError(error.code === 'permission-denied'
+                    ? 'Firestore denied access to property availability. Publish the availability rules and reload.'
+                    : error.message || 'Could not check availability. Please try again later.')
+                setAvailabilityLoading(false)
+            }
+
+            const availabilityQuery = query(
+                collection(db, 'availability'),
+                where('propertyId', '==', propertyId)
+            )
+            unsubscribeAvailability = onSnapshot(
+                availabilityQuery,
+                handleAvailabilitySnapshot,
+                handleAvailabilityError
+            )
+
+            async function backfillConfirmedBookings() {
+                const isPropertyOwner = [
+                    property?.ownerId,
+                    property?.hostId,
+                    property?.ownerUid,
+                ].includes(currentUserId)
+
+                if (userRole !== 'admin' && !(userRole === 'host' && isPropertyOwner)) return
+
+                try {
+                    const bookingsQuery = query(
+                        collection(db, 'bookings'),
+                        where('propertyId', '==', propertyId)
+                    )
+                    const bookingsSnapshot = await getDocs(bookingsQuery)
+                    const confirmedBookings = bookingsSnapshot.docs
+                        .map((bookingDoc) => ({ id: bookingDoc.id, ...bookingDoc.data() }))
+                        .filter((booking) => ['confirmed', 'accepted'].includes(
+                            String(booking.status || '').toLowerCase()
+                        ))
+                        .map((booking) => ({ ...booking, date: toDateKey(booking.date) }))
+                        .filter((booking) => booking.date)
+
+                    await Promise.all(confirmedBookings.map(async (booking) => {
+                        const availabilityRef = doc(
+                            db,
+                            'availability',
+                            getAvailabilityDocumentId(propertyId, booking.date)
+                        )
+                        await runTransaction(db, async (transaction) => {
+                            const existing = await transaction.get(availabilityRef)
+                            if (!existing.exists()) {
+                                transaction.set(availabilityRef, {
+                                    propertyId,
+                                    date: booking.date,
+                                    bookingId: booking.id,
+                                })
+                            }
+                        })
+                    }))
+                } catch (error) {
+                    console.error('Unable to backfill confirmed booking availability:', error)
+                    if (active) {
+                        setAvailabilityError(error.code === 'permission-denied'
+                            ? 'Could not sync confirmed bookings. Check host booking and availability permissions.'
+                            : error.message || 'Could not sync confirmed bookings.')
+                    }
+                }
+            }
+
+            backfillConfirmedBookings()
+        }
+
+        loadAvailability()
+        return () => {
+            active = false
+            unsubscribeAvailability()
+        }
+    }, [propertyId, property, currentUserId, userRole])
 
     const availableTours = []
     if (tours.day?.enabled) {
@@ -118,6 +234,7 @@ function BookingCard({ cottages = [], resort, property }) {
 
     const handleBook = () => {
         if (!date) return
+        if (availabilityLoading || availabilityError || bookedDates.has(date)) return
 
         if (!currentUser) {
             navigate('/login', { state: { returnUrl: window.location.pathname } })
@@ -192,7 +309,15 @@ function BookingCard({ cottages = [], resort, property }) {
                     min={today}
                     onChange={(event) => setDate(event.target.value)}
                     style={{ colorScheme: 'dark' }}
+                    disabled={availabilityLoading || Boolean(availabilityError)}
                 />
+                {availabilityLoading && <small className='text-white-50 d-block mt-1' role='status'>Checking available dates…</small>}
+                {availabilityError && <small className='text-warning d-block mt-1' role='alert'>{availabilityError}</small>}
+                {bookedDates.has(date) && (
+                    <small className='text-warning d-block mt-1' role='alert'>
+                        That date is already booked for this property. Please choose another date.
+                    </small>
+                )}
             </div>
 
             <div className='mb-3'>
@@ -278,7 +403,7 @@ function BookingCard({ cottages = [], resort, property }) {
                 type='button'
                 className='book-btn btn btn-warning w-100 rounded-pill py-2 fw-bold text-dark'
                 onClick={handleBook}
-                disabled={!date}
+                disabled={!date || availabilityLoading || Boolean(availabilityError) || bookedDates.has(date)}
             >
                 Book Now
             </button>
