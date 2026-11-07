@@ -881,6 +881,24 @@ hr {
     margin-top: 0;
 }
 
+.booking-date-input {
+    min-height: 46px;
+    border: 1px solid rgb(255 178 0 / 35%);
+    border-radius: 0.75rem;
+    background-color: #302e26;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.booking-date-input:hover {
+    border-color: rgb(255 178 0 / 70%);
+}
+
+.booking-date-input:focus {
+    border-color: #ffb200;
+    background-color: #302e26;
+    box-shadow: 0 0 0 0.2rem rgb(255 178 0 / 18%);
+}
+
 /* guests */
 .guest-list {
     display: flex;

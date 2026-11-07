@@ -247,7 +247,7 @@ function BookingCard({ cottages = [], resort, property }) {
                 <label className='form-label small mb-1 text-white'>Date</label>
                 <input
                     type='date'
-                    className='booking-input form-control text-white bg-transparent border-secondary'
+                    className='booking-input booking-date-input form-control text-white'
                     value={date}
                     min={today}
                     onChange={(event) => {
