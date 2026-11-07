@@ -30,10 +30,12 @@ const getBookedDates = async (property) => {
     if (property?.id) params.set('propertyId', property.id)
     if (property?.name) params.set('propertyName', property.name)
 
-    const response = await fetch(`${apiUrl}/booked-dates?${params.toString()}`)
+    const availabilityUrl = new URL('/booked-dates', apiUrl)
+    availabilityUrl.search = params.toString()
+    const response = await fetch(availabilityUrl)
     const data = await response.json()
     if (!response.ok) {
-        throw new Error(data.error || 'Could not load date availability.')
+        throw new Error(data.error || `Date availability request failed (${response.status}).`)
     }
     if (!Array.isArray(data.bookedDates)) {
         throw new Error('The availability service returned invalid data.')
@@ -131,7 +133,7 @@ function BookingCard({ cottages = [], resort, property }) {
             } catch (error) {
                 console.error('Error loading booked dates:', error)
                 if (isMounted) {
-                    setAvailabilityError('Could not load date availability. Please try again.')
+                    setAvailabilityError(error.message || 'Could not load date availability. Please try again.')
                     setAvailabilityLoadFailed(true)
                 }
             } finally {
@@ -209,7 +211,7 @@ function BookingCard({ cottages = [], resort, property }) {
             }
         } catch (error) {
             console.error('Error checking booking availability:', error)
-            setAvailabilityError('Could not verify date availability. Please try again.')
+            setAvailabilityError(error.message || 'Could not verify date availability. Please try again.')
             return
         } finally {
             setCheckingDate(false)

@@ -192,41 +192,46 @@ app.get('/booked-dates', async (req, res) => {
 
     try {
         const db = getFirestore()
-        const bookings = db.collection('bookings')
-        const queries = []
-        if (propertyId) {
-            for (const field of ['propertyId', 'propertyUid', 'placeId', 'listingId', 'resortId', 'property.id']) {
-                queries.push(bookings.where(field, '==', propertyId).get())
-            }
-        }
-        if (propertyName) {
-            for (const field of ['propertyName', 'resortName', 'resort', 'property.name']) {
-                queries.push(bookings.where(field, '==', propertyName).get())
-            }
-        }
-
-        const snapshots = await Promise.all(queries)
+        const snapshot = await db.collection('bookings').get()
+        const requestedName = propertyName.toLowerCase()
         const inactiveStatuses = new Set(['rejected', 'cancelled', 'canceled', 'failed', 'expired'])
         const bookedDates = new Set()
-        const seenBookingIds = new Set()
 
-        snapshots.forEach((snapshot) => {
-            snapshot.docs.forEach((bookingDoc) => {
-                if (seenBookingIds.has(bookingDoc.id)) return
-                seenBookingIds.add(bookingDoc.id)
-                const booking = bookingDoc.data()
-                const status = String(booking.status || 'Pending').toLowerCase()
-                if (inactiveStatuses.has(status)) return
-                const rawDate = booking.date || booking.startDate
-                const date = typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(rawDate)
-                    ? rawDate.slice(0, 10)
-                    : typeof rawDate?.toDate === 'function'
-                        ? rawDate.toDate().toISOString().slice(0, 10)
-                        : rawDate instanceof Date
-                            ? rawDate.toISOString().slice(0, 10)
-                            : ''
-                if (date) bookedDates.add(date)
-            })
+        snapshot.docs.forEach((bookingDoc) => {
+            const booking = bookingDoc.data()
+            const bookingPropertyIds = [
+                booking.propertyId,
+                booking.propertyUid,
+                booking.placeId,
+                booking.listingId,
+                booking.resortId,
+                booking.property?.id,
+            ].filter(Boolean)
+            const bookingPropertyNames = [
+                booking.propertyName,
+                booking.resortName,
+                typeof booking.resort === 'string' ? booking.resort : '',
+                booking.property?.name,
+            ].map((name) => String(name || '').trim().toLowerCase()).filter(Boolean)
+            const matchesProperty = (propertyId && bookingPropertyIds.includes(propertyId))
+                || (requestedName && bookingPropertyNames.includes(requestedName))
+            const status = String(booking.status || 'Pending').toLowerCase()
+            if (!matchesProperty || inactiveStatuses.has(status)) return
+
+            const rawDate = booking.date || booking.startDate
+            const parsedDate = typeof rawDate?.toDate === 'function'
+                ? rawDate.toDate()
+                : rawDate instanceof Date
+                    ? rawDate
+                    : typeof rawDate === 'string'
+                        ? new Date(rawDate)
+                        : null
+            const date = typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(rawDate)
+                ? rawDate.slice(0, 10)
+                : parsedDate && !Number.isNaN(parsedDate.getTime())
+                    ? parsedDate.toISOString().slice(0, 10)
+                    : ''
+            if (date) bookedDates.add(date)
         })
 
         return res.json({ bookedDates: [...bookedDates] })
