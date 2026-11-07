@@ -65,7 +65,7 @@ function NavBar() {
                 <div className='d-flex align-items-center navi-container'>
                     <span className="account-side-indicatorN account-side-indicatorN--guest" aria-label="You are using the guest side">
                         <i className="bi bi-person-fill" aria-hidden="true" />
-                        Guest side
+                        <span className="account-side-labelN">Guest side</span>
                     </span>
                     <button type="button" aria-label="Log in or sign up" onClick={handleUserClick} className="bg-transparent border-0 text-white">
                         {currentUser ? (

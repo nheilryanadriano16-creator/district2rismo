@@ -455,6 +455,35 @@
     display: none;
 }
 
+.host-navbar-actionsN {
+    gap: .5rem;
+}
+
+@media (max-width: 576px) {
+    .host-navbar-actionsN {
+        gap: .25rem;
+    }
+
+    .host-navbar-customerN {
+        padding-inline: .4rem;
+    }
+
+    .host-navbar-toggleN {
+        padding: .25rem;
+    }
+}
+
+@media (max-width: 409px) {
+    .site-header .burger-menuN {
+        position: fixed !important;
+        top: 4.5rem !important;
+        right: auto !important;
+        left: 50% !important;
+        margin: 0;
+        transform: translateX(-50%) !important;
+    }
+}
+
 #dark-mode-switch {
     border-color: #FFB200;
 }
@@ -4223,4 +4252,3 @@ textarea:-webkit-autofill:focus {
     background-color: #FFB200;
     color: #24221B;
 }
-

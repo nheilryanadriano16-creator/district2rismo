@@ -132,6 +132,26 @@ body {
     background-color: #FFB200;
 }
 
+@media (max-width: 576px) {
+    .account-side-indicatorN--guest .account-side-labelN {
+        font-size: 0;
+    }
+
+    .account-side-indicatorN--guest .account-side-labelN::after {
+        content: 'Guest';
+        font-size: .72rem;
+    }
+
+    .account-side-indicatorN--host .account-side-labelN {
+        font-size: 0;
+    }
+
+    .account-side-indicatorN--host .account-side-labelN::after {
+        content: 'Host';
+        font-size: .72rem;
+    }
+}
+
 .main-text-container h1 {
     text-align: center;
     font-size: clamp(2.5rem, 5vw, 4.5rem);

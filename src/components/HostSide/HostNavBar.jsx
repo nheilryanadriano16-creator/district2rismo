@@ -60,15 +60,15 @@ export const HostNavBar = ({ activeSection, onSelect, preview = false, onLogout 
                     <img className="img-fluid logo" src={Logo2Rismo} alt="District 2rismo home" />
                 </Link>
 
-                <div className="d-flex align-items-center gap-2">
+                <div className="host-navbar-actionsN d-flex align-items-center">
                     <span className="account-side-indicatorN account-side-indicatorN--host" aria-label="You are using the host side">
                         <i className="bi bi-house-door-fill" aria-hidden="true" />
-                        Host side
+                        <span className="account-side-labelN">Host side</span>
                     </span>
                     {!preview && (
                         <Link
                             to="/account"
-                            className="btn btn-sm btn-outline-warning text-nowrap"
+                            className="host-navbar-customerN btn btn-sm btn-outline-warning text-nowrap"
                             aria-label="Open customer account"
                         >
                             <i className="bi bi-person-circle me-sm-1" aria-hidden="true" />
@@ -86,7 +86,7 @@ export const HostNavBar = ({ activeSection, onSelect, preview = false, onLogout 
 
                     <button
                         type="button"
-                        className={`btn text-white ${['Add Property', 'Confirm Booking', 'View Property', 'Edit Property'].includes(activeSection) ? '' : 'd-lg-none'}`}
+                        className={`host-navbar-toggleN btn text-white ${['Add Property', 'Confirm Booking', 'View Property', 'Edit Property'].includes(activeSection) ? '' : 'd-lg-none'}`}
                         aria-label="Open host navigation"
                         onClick={() => setShowMenu(true)}
                     >
