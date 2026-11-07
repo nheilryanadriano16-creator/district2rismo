@@ -33,6 +33,7 @@ function BookingCard({ cottages = [], resort, property }) {
     const [bookedDates, setBookedDates] = useState(new Set())
     const [availabilityLoading, setAvailabilityLoading] = useState(true)
     const [availabilityError, setAvailabilityError] = useState('')
+    const [dateError, setDateError] = useState('')
     const [date, setDate] = useState(today)
     const propertyId = property?.id
     const tours = property?.tourSettings || {}
@@ -65,10 +66,17 @@ function BookingCard({ cottages = [], resort, property }) {
                     ))
                     .map((booking) => toDateKey(booking.data().date))
                     .filter(Boolean))
-                if (active) setBookedDates(dates)
+                if (active) {
+                    setBookedDates(dates)
+                    setDate((currentDate) => dates.has(currentDate) ? '' : currentDate)
+                }
             } catch (error) {
                 console.error('Unable to load property availability:', error)
-                if (active) setAvailabilityError('Could not check availability. Please try again later.')
+                if (active) {
+                    setAvailabilityError(error.code === 'permission-denied'
+                        ? 'Firestore denied access to this property’s booking dates. Check the bookings read rule for customers.'
+                        : error.message || 'Could not check availability. Please try again later.')
+                }
             } finally {
                 if (active) setAvailabilityLoading(false)
             }
@@ -164,7 +172,12 @@ function BookingCard({ cottages = [], resort, property }) {
 
     const handleBook = () => {
         if (!date) return
-        if (availabilityLoading || availabilityError || bookedDates.has(date)) return
+        if (availabilityLoading || availabilityError) return
+        if (bookedDates.has(date)) {
+            setDate('')
+            setDateError('That date is already booked for this property. Please choose another date.')
+            return
+        }
 
         if (!currentUser) {
             navigate('/login', { state: { returnUrl: window.location.pathname } })
@@ -239,7 +252,12 @@ function BookingCard({ cottages = [], resort, property }) {
                     min={today}
                     onChange={(event) => {
                         const selectedDate = event.target.value
-                        if (bookedDates.has(selectedDate)) return
+                        if (bookedDates.has(selectedDate)) {
+                            event.target.value = date
+                            setDateError('That date is already booked for this property. Please choose another date.')
+                            return
+                        }
+                        setDateError('')
                         setDate(selectedDate)
                     }}
                     style={{ colorScheme: 'dark' }}
@@ -247,6 +265,7 @@ function BookingCard({ cottages = [], resort, property }) {
                 />
                 {availabilityLoading && <small className='text-white-50 d-block mt-1' role='status'>Checking available dates…</small>}
                 {availabilityError && <small className='text-warning d-block mt-1' role='alert'>{availabilityError}</small>}
+                {dateError && <small className='text-warning d-block mt-1' role='alert'>{dateError}</small>}
             </div>
 
             <div className='mb-3'>
