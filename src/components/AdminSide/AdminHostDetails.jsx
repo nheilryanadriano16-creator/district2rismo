@@ -177,20 +177,20 @@ export function AdminHostDetails({
                         <div className="d-flex flex-wrap justify-content-end gap-3">
                             <button 
                                 type="button" 
-                                className={`btn admin-user-account-buttonN ${isDeactivated ? 'btn-success text-white' : 'admin-host-deactivateN'}`} 
+                                className={`btn admin-host-actionN admin-user-account-buttonN ${isDeactivated ? 'btn-success text-white' : 'admin-host-deactivateN'}`}
                                 onClick={() => setShowDeactivate(true)}
                             >
                                 {isDeactivated ? 'Reactivate Account' : 'Deactivate Account'}
                             </button>
 
                             {isVerified ? (
-                                <button type="button" className="btn admin-host-revokeN admin-user-account-buttonN" onClick={() => setShowRevoke(true)}>
+                                <button type="button" className="btn admin-host-actionN admin-host-revokeN admin-user-account-buttonN" onClick={() => setShowRevoke(true)}>
                                     Revoke Verification
                                 </button>
                             ) : (
                                 <button 
                                     type="button" 
-                                    className="btn btn-success text-white admin-user-account-buttonN" 
+                                    className="btn btn-success text-white admin-host-actionN admin-user-account-buttonN"
                                     onClick={handleVerifyHost}
                                     disabled={loadingVerify}
                                 >

@@ -19,10 +19,12 @@ export function AdminProperties({ onViewDetails }) {
             try {
                 setLoading(true)
                 const querySnapshot = await getDocs(collection(db, 'properties'))
-                const loadedProperties = querySnapshot.docs.map((docItem) => ({
-                    id: docItem.id,
-                    ...docItem.data()
-                }))
+                const loadedProperties = querySnapshot.docs
+                    .map((docItem) => ({
+                        id: docItem.id,
+                        ...docItem.data()
+                    }))
+                    .filter((property) => (property.status || '').toLowerCase() !== 'removed')
 
                 if (isMounted) {
                     setProperties(loadedProperties)

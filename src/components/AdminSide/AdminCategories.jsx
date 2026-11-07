@@ -13,6 +13,7 @@ const defaultAmenityGroups = [
 
 export function AdminCategories() {
     const [propertyCategories, setPropertyCategories] = useState([])
+    const [approvedPropertyCount, setApprovedPropertyCount] = useState(0)
     const [amenityGroups, setAmenityGroups] = useState(defaultAmenityGroups)
     const [activeGroup, setActiveGroup] = useState(defaultAmenityGroups[0].name)
     const [showCategoryForm, setShowCategoryForm] = useState(false)
@@ -25,15 +26,22 @@ export function AdminCategories() {
     useEffect(() => {
         async function fetchCategoriesAndAmenities() {
             try {
-                // Fetch categories from the new collection
-                const catSnap = await getDocs(collection(db, 'propertyCategories'))
+                const [catSnap, propertiesSnap, amenSnap] = await Promise.all([
+                    getDocs(collection(db, 'propertyCategories')),
+                    getDocs(collection(db, 'properties')),
+                    getDocs(collection(db, 'amenityGroups')),
+                ])
+
+                const approvedCount = propertiesSnap.docs.filter(
+                    (propertyDoc) => (propertyDoc.data().status || '').trim().toLowerCase() === 'approved'
+                ).length
+                setApprovedPropertyCount(approvedCount)
+
                 if (!catSnap.empty) {
                     const loadedCats = catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
                     setPropertyCategories(loadedCats)
                 }
 
-                // Fetch amenity groups
-                const amenSnap = await getDocs(collection(db, 'amenityGroups'))
                 if (!amenSnap.empty) {
                     const loadedGroups = amenSnap.docs.map(doc => doc.data())
                     setAmenityGroups(prev => 
@@ -60,7 +68,11 @@ export function AdminCategories() {
 
         try {
             setLoading(true)
-            const newCat = { type: name, total: 0, status: 'Active' }
+            const newCat = {
+                type: name,
+                total: approvedPropertyCount,
+                status: 'Active',
+            }
             const docRef = await addDoc(collection(db, 'propertyCategories'), {
                 ...newCat,
                 createdAt: serverTimestamp()
@@ -218,7 +230,7 @@ export function AdminCategories() {
                                 propertyCategories.map((category) => (
                                     <tr key={category.id || category.type}>
                                         <td>{category.type}</td>
-                                        <td>{category.total}</td>
+                                        <td>{approvedPropertyCount}</td>
                                         <td>{category.status}</td>
                                     </tr>
                                 ))

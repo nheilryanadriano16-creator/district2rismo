@@ -19,7 +19,7 @@ import { AdminHostDetails } from '../components/AdminSide/AdminHostDetails.jsx'
 export function Admin({ preview = false }) {
     const navigate = useNavigate()
     const { currentUser, userRole, loading } = useAuth()
-    const { state: routeState } = useLocation()
+    const { state: routeState, key: locationKey } = useLocation()
     const [activeSection, setActiveSection] = useState(routeState?.section || 'Dashboard')
     const [selectedUser, setSelectedUser] = useState(null)
     const [selectedHost, setSelectedHost] = useState(null)
@@ -31,6 +31,14 @@ export function Admin({ preview = false }) {
             }
         }
     }, [currentUser, userRole, loading, preview, navigate])
+
+    useEffect(() => {
+        if (routeState?.section) {
+            setActiveSection(routeState.section)
+            setSelectedUser(null)
+            setSelectedHost(null)
+        }
+    }, [locationKey, routeState?.section])
 
     const handleSectionChange = (section) => {
         setActiveSection(section)

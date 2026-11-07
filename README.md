@@ -1,18 +1,5 @@
 # React + Vite
 
-## Deploying the frontend to Vercel
-
-Import the repository into Vercel with the repository root as the project root. The included `vercel.json` configures the Vite build (`npm run build`), output directory (`dist`), and React Router fallback for direct page loads.
-
-Set these frontend environment variables in Vercel for each deployment environment:
-
-- `VITE_STRIPE_PUBLISHABLE_KEY`: Stripe publishable key (`pk_...`). This value is public in the browser bundle.
-- `VITE_PAYMENT_API_URL`: HTTPS base URL for the separately hosted Express API in `server/`.
-
-The Express API is not deployed by this static frontend configuration. Host it separately and configure its `STRIPE_SECRET_KEY`, `FRONTEND_URL` (your Vercel domain), and Firebase Admin credentials as server-side environment variables. Do not put secret keys in variables prefixed with `VITE_`.
-
-Property photo uploads are sent to the Express API and stored in Cloudinary. Configure `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` as server-side environment variables on the API host; never expose the API secret in Vercel or frontend code. The API requires a signed-in Firebase ID token and accepts image files up to 15 MB. Verification documents continue to use Firebase Storage so they are not exposed as public property images.
-
 ## Development
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.

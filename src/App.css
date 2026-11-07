@@ -2742,6 +2742,30 @@ textarea:-webkit-autofill:focus {
     color: #24221B;
 }
 
+.admin-host-actionN {
+    transition: opacity 0.15s ease-in-out;
+}
+
+.admin-host-actionN:hover:not(:disabled) {
+    opacity: 0.85;
+}
+
+.admin-host-actionN.admin-host-deactivateN:hover:not(:disabled) {
+    background-color: #38362D;
+    color: #FFB200;
+}
+
+.admin-host-actionN.admin-host-revokeN:hover:not(:disabled) {
+    background-color: #FFB200;
+    color: #24221B;
+}
+
+.admin-host-actionN.btn-success:hover:not(:disabled) {
+    background-color: #198754;
+    border-color: #198754;
+    color: #fff;
+}
+
 /* admin revoke */
 .admin-host-revoke-dialogN {
     width: min(34.5rem, calc(100vw - 1.5rem));
@@ -4199,6 +4223,4 @@ textarea:-webkit-autofill:focus {
     background-color: #FFB200;
     color: #24221B;
 }
-
-
 

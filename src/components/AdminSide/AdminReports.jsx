@@ -24,6 +24,20 @@ export function AdminReports() {
                     id: docItem.id,
                     ...docItem.data(),
                 }))
+                const removedPropertyIds = new Set(
+                    loadedProperties
+                        .filter((item) => String(item.status || '').toLowerCase() === 'removed')
+                        .flatMap((item) => [item.id, item.propertyId].filter(Boolean))
+                )
+                const removedPropertyNames = new Set(
+                    loadedProperties
+                        .filter((item) => String(item.status || '').toLowerCase() === 'removed')
+                        .map((item) => String(item.name || item.propertyName || '').trim().toLowerCase())
+                        .filter(Boolean)
+                )
+                const visibleProperties = loadedProperties.filter(
+                    (item) => String(item.status || '').toLowerCase() !== 'removed'
+                )
                 const loadedReservations = bookingsSnapshot.docs.map((docItem) => {
                     const data = docItem.data()
                     const propertyData = data.property && typeof data.property === 'object'
@@ -45,8 +59,13 @@ export function AdminReports() {
                         totalAmount: Number(String(data.total || data.totalAmount || data.amountPaid || 0).replace(/[^\d.-]/g, '')) || 0,
                     }
                 })
-                setReservations(loadedReservations)
-                setProperties(loadedProperties)
+                const visibleReservations = loadedReservations.filter((item) => {
+                    if (item.propertyId && removedPropertyIds.has(item.propertyId)) return false
+                    if (item.propertyId) return true
+                    return !removedPropertyNames.has(item.propertyName.trim().toLowerCase())
+                })
+                setReservations(visibleReservations)
+                setProperties(visibleProperties)
             } catch (err) {
                 console.error('Error fetching bookings for reports:', err)
                 setError('Could not load bookings and properties. Please try again.')

@@ -5,6 +5,18 @@ import { db } from '../../firebase'
 
 const filters = ['All', 'Active', 'Reported']
 
+function formatReviewDate(value) {
+    if (!value) return ''
+
+    const date = typeof value.toDate === 'function' ? value.toDate() : new Date(value)
+    if (Number.isNaN(date.getTime())) return ''
+
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
+
 export function AdminReviews({ onReviewAction, preview = false }) {
     const [reviews, setReviews] = useState([])
     const [loading, setLoading] = useState(true)
@@ -18,11 +30,47 @@ export function AdminReviews({ onReviewAction, preview = false }) {
         async function fetchReviews() {
             try {
                 setLoading(true)
-                const querySnapshot = await getDocs(collection(db, 'reviews'))
-                const loadedReviews = querySnapshot.docs.map(docItem => ({
-                    id: docItem.id,
-                    ...docItem.data()
-                }))
+                const [reviewsSnapshot, usersSnapshot, propertiesSnapshot] = await Promise.all([
+                    getDocs(collection(db, 'reviews')),
+                    getDocs(collection(db, 'users')),
+                    getDocs(collection(db, 'properties')),
+                ])
+                const usersById = new Map(usersSnapshot.docs.map((userDoc) => [userDoc.id, userDoc.data()]))
+                const usersByEmail = new Map(
+                    usersSnapshot.docs
+                        .map((userDoc) => [String(userDoc.data().email || '').toLowerCase(), userDoc.data()])
+                        .filter(([email]) => email)
+                )
+                const propertiesById = new Map(
+                    propertiesSnapshot.docs.map((propertyDoc) => [propertyDoc.id, propertyDoc.data()])
+                )
+                const loadedReviews = reviewsSnapshot.docs.map((reviewDoc) => {
+                    const data = reviewDoc.data()
+                    const user = usersById.get(data.userId)
+                        || usersByEmail.get(String(data.userEmail || data.email || '').toLowerCase())
+                    const profileName = [user?.firstName, user?.lastName].filter(Boolean).join(' ')
+                    const propertyData = propertiesById.get(data.propertyId)
+
+                    return {
+                        ...data,
+                        id: reviewDoc.id,
+                        guest: data.guest
+                            || data.guestName
+                            || profileName
+                            || user?.name
+                            || data.userEmail
+                            || data.email
+                            || 'Guest',
+                        property: (typeof data.property === 'string' ? data.property : data.property?.name)
+                            || data.propertyName
+                            || data.resort
+                            || data.resortName
+                            || propertyData?.name
+                            || 'Property',
+                        status: data.status || 'Active',
+                        date: formatReviewDate(data.date || data.createdAt),
+                    }
+                })
                 setReviews(loadedReviews)
             } catch (err) {
                 console.error('Error fetching reviews:', err)

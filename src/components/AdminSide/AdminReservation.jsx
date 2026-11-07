@@ -54,8 +54,12 @@ export function AdminReservation({ preview = false }) {
     const properties = [...new Set(bookings.map((booking) => booking.property).filter(Boolean))]
 
     const filteredBookings = bookings.filter((booking) => {
-        const matchesFilter =
-            activeFilter === 'All' || (booking.status || '').toLowerCase().includes(activeFilter.toLowerCase())
+        const status = (booking.status || '').trim().toLowerCase()
+        const matchesFilter = activeFilter === 'All' || (
+            activeFilter === 'Paid'
+                ? ['paid', 'confirmed'].includes(status)
+                : status === activeFilter.toLowerCase()
+        )
         const matchesProperty =
             !selectedProperty || booking.property === selectedProperty
         const matchesSearch = (booking.id || '')

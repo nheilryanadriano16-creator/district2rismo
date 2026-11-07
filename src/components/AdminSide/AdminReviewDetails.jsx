@@ -109,6 +109,7 @@ export function AdminReviewDetails({ review: initialReview, onBack, onDelete, pr
     }
 
     const breakdown = review.breakdown || {}
+    const isReported = String(review.status || '').toLowerCase() === 'reported'
 
     return (
         <section className="container-fluid p-3 p-md-4 admin-review-detailN">
@@ -165,10 +166,14 @@ export function AdminReviewDetails({ review: initialReview, onBack, onDelete, pr
                 <div className="form-control admin-review-detail-commentN" role="textbox" aria-readonly="true">{review.comment || '\u2014'}</div>
             </section>
 
-            <div className="d-flex flex-wrap justify-content-end gap-3">
-                <button type="button" className="btn btn-warning rounded-pill admin-user-account-buttonN" onClick={() => setShowDeleteModal(true)}>Delete Comment</button>
-            </div>
-            <AdminReviewDelete show={showDeleteModal} review={review} onHide={() => setShowDeleteModal(false)} onConfirm={handleDeleteConfirm} />
+            {isReported && (
+                <>
+                    <div className="d-flex flex-wrap justify-content-end gap-3">
+                        <button type="button" className="btn btn-warning rounded-pill admin-user-account-buttonN" onClick={() => setShowDeleteModal(true)}>Delete Comment</button>
+                    </div>
+                    <AdminReviewDelete show={showDeleteModal} review={review} onHide={() => setShowDeleteModal(false)} onConfirm={handleDeleteConfirm} />
+                </>
+            )}
         </section>
     )
 }

@@ -1,12 +1,10 @@
-import { lazy, Suspense } from 'react';
+﻿import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { NotificationProvider } from './context/NotificationContext';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoutes } from './components/ProtectedRoutes.jsx';
 import { RoleBasedRedirect } from './components/RoleBasedRedirect.jsx';
 import { Snackbar } from './components/Snackbar.jsx';
-import { LoginN } from './components/auth/LoginN.jsx';
-import { SignUpN } from './components/auth/SignUpN.jsx';
 import './App.css';
 
 const Home = lazy(() => import('./pages/Home.jsx'));
@@ -14,6 +12,8 @@ const Destinations = lazy(() => import('./pages/Destinations.jsx'));
 const PlaceDetails = lazy(() => import('./pages/PlaceDetails.jsx'));
 const Account = lazy(() => import('./pages/Account.jsx'));
 const ConfirmPayment = lazy(() => import('./pages/ConfirmPayment.jsx'));
+const LoginN = lazy(() => import('./components/auth/LoginN.jsx').then((module) => ({ default: module.LoginN })));
+const SignUpN = lazy(() => import('./components/auth/SignUpN.jsx').then((module) => ({ default: module.SignUpN })));
 const HostN = lazy(() => import('./pages/Host.jsx').then((module) => ({ default: module.HostN })));
 const HostMyProfilePage = lazy(() => import('./pages/HostProfilePage.jsx').then((module) => ({ default: module.HostMyProfilePage })));
 const Admin = lazy(() => import('./pages/Admin.jsx').then((module) => ({ default: module.Admin })));
@@ -29,17 +29,7 @@ function App() {
         <Snackbar />
         <Suspense fallback={<div className="d-flex min-vh-100 align-items-center justify-content-center text-white">Loading page...</div>}>
           <Routes>
-            {import.meta.env.DEV && (
-              <>
-                <Route path="/admin-preview" element={<Admin preview />} />
-                <Route path="/admin-preview/properties/:id" element={<AdminPropertyDetailsPage preview />} />
-                <Route path="/admin-preview/reservations/:id" element={<AdminReservationDetailsPage preview />} />
-                <Route path="/admin-preview/reviews/:id" element={<AdminReviewDetailsPage preview />} />
-                <Route path="/admin-profile-preview" element={<AdminProfilePage preview />} />
-                <Route path="/host-preview/*" element={<HostN preview />} />
-                <Route path="/host-profile-preview" element={<HostMyProfilePage preview />} />
-              </>
-            )}
+            
 
             <Route
               path="/"
