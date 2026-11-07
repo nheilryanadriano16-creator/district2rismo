@@ -108,6 +108,8 @@ function BookingCard({ cottages = [], resort, property }) {
     const [guestsCount, setGuestsCount] = useState(property?.capacity || 10)
     const [selectedCottageIds, setSelectedCottageIds] = useState([])
     const [dropdownOpen, setDropdownOpen] = useState(false)
+    const [calendarOpen, setCalendarOpen] = useState(false)
+    const [calendarMonth, setCalendarMonth] = useState(() => new Date())
     const dropdownRef = useRef(null)
 
     const currentTour = defaultTours.find(t => t.key === selectedTourKey) || defaultTours[0]
@@ -133,6 +135,17 @@ function BookingCard({ cottages = [], resort, property }) {
     )
 
     const total = tourPrice + cottagesPrice
+    const monthStart = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1)
+    const calendarStart = new Date(monthStart)
+    calendarStart.setDate(1 - monthStart.getDay())
+    const calendarDays = Array.from({ length: 42 }, (_, index) => {
+        const day = new Date(calendarStart)
+        day.setDate(calendarStart.getDate() + index)
+        return day
+    })
+    const selectedDateLabel = date
+        ? new Date(`${date}T00:00:00`).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
+        : 'Choose a date'
 
     const handleToggleCottage = (cottageKey) => {
         setSelectedCottageIds(current =>
@@ -231,23 +244,56 @@ function BookingCard({ cottages = [], resort, property }) {
 
             <div className='mb-3'>
                 <label className='form-label small mb-1 text-white'>Date</label>
-                <input
-                    type='date'
-                    className='booking-input form-control text-white bg-transparent border-secondary'
-                    value={date}
-                    min={today}
-                    onChange={(event) => {
-                        const selectedDate = event.target.value
-                        if (bookedDates.has(selectedDate)) {
-                            setDateError('That date is already booked. Please choose another date.')
-                            return
-                        }
-                        setDateError('')
-                        setDate(selectedDate)
-                    }}
-                    style={{ colorScheme: 'dark' }}
-                    disabled={availabilityLoading}
-                />
+                <button
+                    type='button'
+                    className='booking-input form-control text-white bg-transparent border-secondary text-start'
+                    aria-haspopup='dialog'
+                    aria-expanded={calendarOpen}
+                    onClick={() => setCalendarOpen((open) => !open)}
+                    disabled={availabilityLoading || availabilityError}
+                >
+                    {selectedDateLabel}
+                </button>
+                {calendarOpen && !availabilityLoading && !availabilityError && (
+                    <div className='mt-2 p-2 rounded-3 border border-secondary bg-dark' role='dialog' aria-label='Choose booking date'>
+                        <div className='d-flex justify-content-between align-items-center mb-2'>
+                            <button type='button' className='btn btn-sm btn-outline-light' aria-label='Previous month'
+                                onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+                                disabled={calendarMonth.getFullYear() === new Date(`${today}T00:00:00`).getFullYear() && calendarMonth.getMonth() <= new Date(`${today}T00:00:00`).getMonth()}>
+                                ‹
+                            </button>
+                            <strong className='text-white' aria-live='polite'>{calendarMonth.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })}</strong>
+                            <button type='button' className='btn btn-sm btn-outline-light' aria-label='Next month'
+                                onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}>
+                                ›
+                            </button>
+                        </div>
+                        <div className='d-grid' style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 2 }}>
+                            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((weekday) => (
+                                <span key={weekday} className='text-center text-white-50 small py-1' aria-hidden='true'>{weekday}</span>
+                            ))}
+                            {calendarDays.map((day) => {
+                                const dayKey = toDateKey(day)
+                                const isBooked = bookedDates.has(dayKey)
+                                const isPast = dayKey < today
+                                const isCurrentMonth = day.getMonth() === calendarMonth.getMonth()
+                                const isSelected = dayKey === date
+                                return (
+                                    <button key={dayKey} type='button' disabled={isBooked || isPast || !isCurrentMonth}
+                                        aria-label={`${day.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}${isBooked ? ', booked' : ''}`}
+                                        aria-pressed={isSelected}
+                                        title={isBooked ? 'Already booked' : undefined}
+                                        onClick={() => { setDate(dayKey); setDateError(''); setCalendarOpen(false) }}
+                                        className={`btn btn-sm p-1 ${isSelected ? 'btn-warning' : 'btn-outline-light'}`}
+                                        style={{ opacity: isCurrentMonth ? (isBooked || isPast ? 0.4 : 1) : 0, minWidth: 0 }}>
+                                        {day.getDate()}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                        <small className='text-white-50 d-block mt-2'>Unavailable dates are disabled.</small>
+                    </div>
+                )}
                 {dateError && <small className='text-warning d-block mt-1' role='alert'>{dateError}</small>}
                 {!dateError && availabilityLoading && <small className='text-white-50 d-block mt-1' role='status'>Checking available dates…</small>}
             </div>
