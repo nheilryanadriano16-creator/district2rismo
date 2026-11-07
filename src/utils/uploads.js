@@ -53,10 +53,11 @@ async function optimizePropertyImage(file) {
     }
 }
 
-async function uploadPropertyImage(file, user, onProgress) {
+async function uploadApiFile(file, user, category, onProgress) {
     const token = await user.getIdToken()
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('category', category)
 
     return new Promise((resolve, reject) => {
         const request = new XMLHttpRequest()
@@ -83,7 +84,7 @@ async function uploadPropertyImage(file, user, onProgress) {
             }
 
             if (request.status < 200 || request.status >= 300) {
-                reject(new Error(response.error || 'Could not upload property photo.'))
+                reject(new Error(response.error || `Could not upload file (${request.status}).`))
                 return
             }
             if (typeof response.filePath !== 'string') {
@@ -114,27 +115,27 @@ export async function uploadFile(file, category = 'property-media', onProgress) 
     }
 
     onProgress?.({ phase: 'preparing', progress: 0 })
-    const uploadFile = category === 'property-media' ? await optimizePropertyImage(file) : file
-    if (category === 'property-media') {
-        return uploadPropertyImage(uploadFile, user, onProgress)
+    const preparedFile = category === 'property-media' ? await optimizePropertyImage(file) : file
+    if (category === 'property-media' || category === 'verification') {
+        return uploadApiFile(preparedFile, user, category, onProgress)
     }
 
-    const safeName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const safeName = preparedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const filePath = `uploads/${category}/${user.uid}/${Date.now()}-${safeName}`
     const storageRef = ref(storage, filePath)
 
-    if (uploadFile.size <= RESUMABLE_UPLOAD_THRESHOLD) {
+    if (preparedFile.size <= RESUMABLE_UPLOAD_THRESHOLD) {
         onProgress?.({ phase: 'saving', progress: 0 })
-        await uploadBytes(storageRef, uploadFile, {
-            contentType: uploadFile.type || 'application/octet-stream',
+        await uploadBytes(storageRef, preparedFile, {
+            contentType: preparedFile.type || 'application/octet-stream',
         })
         onProgress?.({ phase: 'uploading', progress: 100 })
         return getDownloadURL(storageRef)
     }
 
     onProgress?.({ phase: 'uploading', progress: 0 })
-    const uploadTask = uploadBytesResumable(storageRef, uploadFile, {
-        contentType: uploadFile.type || 'application/octet-stream',
+    const uploadTask = uploadBytesResumable(storageRef, preparedFile, {
+        contentType: preparedFile.type || 'application/octet-stream',
     })
 
     await new Promise((resolve, reject) => {

@@ -60,13 +60,14 @@ const imageMimeTypes = new Set([
     'image/gif',
     'image/avif',
 ])
+const verificationMimeTypes = new Set([...imageMimeTypes, 'application/pdf'])
 
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 15 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-        if (!imageMimeTypes.has(file.mimetype)) {
-            cb(new Error('Only JPEG, PNG, WebP, GIF, and AVIF images are allowed.'))
+        if (!verificationMimeTypes.has(file.mimetype)) {
+            cb(new Error('Only JPEG, PNG, WebP, GIF, AVIF, and PDF files are allowed.'))
             return
         }
         cb(null, true)
@@ -118,6 +119,13 @@ app.post('/api/upload', requireFirebaseAuth, handleUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded.' })
     }
+    const category = req.body.category === 'verification' ? 'verification' : 'property-media'
+    if (category === 'property-media' && !imageMimeTypes.has(req.file.mimetype)) {
+        return res.status(400).json({ error: 'Property photos must be an image file.' })
+    }
+    if (category === 'verification' && !verificationMimeTypes.has(req.file.mimetype)) {
+        return res.status(400).json({ error: 'Verification documents must be an image or PDF.' })
+    }
 
     if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
         return res.status(503).json({ error: 'Cloudinary is not configured on the upload server.' })
@@ -125,10 +133,14 @@ app.post('/api/upload', requireFirebaseAuth, handleUpload, async (req, res) => {
 
     try {
         const result = await new Promise((resolve, reject) => {
+            const isPdf = req.file.mimetype === 'application/pdf'
             const uploadStream = cloudinary.uploader.upload_stream({
-                folder: `district2rismo/properties/${req.firebaseUser.uid}`,
-                resource_type: 'image',
-                allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'],
+                folder: `district2rismo/${category === 'verification' ? 'verification' : 'properties'}/${req.firebaseUser.uid}`,
+                resource_type: isPdf ? 'raw' : 'image',
+                ...(isPdf && {
+                    public_id: `${Date.now()}-${path.basename(req.file.originalname).replace(/[^a-zA-Z0-9._-]/g, '_')}`,
+                }),
+                ...(isPdf ? {} : { allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'] }),
             }, (error, uploaded) => {
                 if (error) {
                     reject(error)
@@ -145,8 +157,8 @@ app.post('/api/upload', requireFirebaseAuth, handleUpload, async (req, res) => {
             fileName: result.public_id,
         })
     } catch (error) {
-        console.error('Cloudinary photo upload failed:', error.message)
-        return res.status(502).json({ error: 'Cloudinary could not save the photo. Please try again.' })
+        console.error('Cloudinary file upload failed:', error.message)
+        return res.status(502).json({ error: 'Cloudinary could not save the file. Please try again.' })
     }
 })
 
