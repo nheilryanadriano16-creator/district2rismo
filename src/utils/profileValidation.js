@@ -1,3 +1,5 @@
+export const MAX_PHONE_NUMBER_LENGTH = 11
+
 export function getMaxDateForAge(minimumAge = 18, referenceDate = new Date()) {
   const maxDate = new Date(referenceDate)
   maxDate.setFullYear(maxDate.getFullYear() - minimumAge)
@@ -21,9 +23,13 @@ export function isAdultDateOfBirth(dateOfBirth, minimumAge = 18) {
   return dateOfBirth <= getMaxDateForAge(minimumAge)
 }
 
+export function normalizePhoneNumber(phoneNumber) {
+  return String(phoneNumber || '').replace(/\D/g, '').slice(0, MAX_PHONE_NUMBER_LENGTH)
+}
+
 export function isValidPhoneNumber(phoneNumber) {
   const value = String(phoneNumber || '').trim()
-  return /^\d{7,15}$/.test(value) && !/^(\d)\1+$/.test(value)
+  return new RegExp(`^\\d{${MAX_PHONE_NUMBER_LENGTH}}$`).test(value) && !/^(\d)\1+$/.test(value)
 }
 
 export function validateProfileDetails(profile) {
@@ -31,7 +37,7 @@ export function validateProfileDetails(profile) {
     return 'You must be at least 18 years old.'
   }
   if (!isValidPhoneNumber(profile.phoneNumber)) {
-    return 'Enter a phone number using 7 to 15 digits only.'
+    return `Enter a phone number ${MAX_PHONE_NUMBER_LENGTH} digits only.`
   }
   return ''
 }

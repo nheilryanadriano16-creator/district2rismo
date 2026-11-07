@@ -6,6 +6,8 @@ import {
     getMaxDateForAge,
     isAdultDateOfBirth,
     isValidPhoneNumber,
+    MAX_PHONE_NUMBER_LENGTH,
+    normalizePhoneNumber,
     validateProfileDetails,
 } from '../../utils/profileValidation'
 
@@ -36,7 +38,7 @@ export const EditProfileN = () => {
                         firstName: data.firstName || '',
                         lastName: data.lastName || '',
                         dateOfBirth: data.dateOfBirth || '',
-                        phoneNumber: data.phoneNumber || data.phone || '',
+                        phoneNumber: normalizePhoneNumber(data.phoneNumber || data.phone),
                     }
                     setProfile(initial)
                     setDraft(initial)
@@ -45,7 +47,7 @@ export const EditProfileN = () => {
                         firstName: userData.firstName || '',
                         lastName: userData.lastName || '',
                         dateOfBirth: userData.dateOfBirth || '',
-                        phoneNumber: userData.phoneNumber || userData.phone || '',
+                        phoneNumber: normalizePhoneNumber(userData.phoneNumber || userData.phone),
                     }
                     setProfile(initial)
                     setDraft(initial)
@@ -59,7 +61,7 @@ export const EditProfileN = () => {
 
     const handleChange = (event) => {
         const { name, value } = event.target
-        const nextValue = name === 'phoneNumber' ? value.replace(/\D/g, '').slice(0, 15) : value
+        const nextValue = name === 'phoneNumber' ? normalizePhoneNumber(value) : value
         setDraft((current) => ({ ...current, [name]: nextValue }))
         setValidationError('')
     }
@@ -126,7 +128,7 @@ export const EditProfileN = () => {
                     </div>
                     <div className="col-12 col-md-6">
                         <label className="form-label profile-labelN" htmlFor="profile-phone-number">Phone Number</label>
-                        <input id="profile-phone-number" className="form-control profile-inputN" type="tel" name="phoneNumber" value={draft.phoneNumber} onChange={handleChange} readOnly={!isEditing} required={isEditing} autoComplete="tel" inputMode="numeric" pattern={String.raw`\d{7,15}`} maxLength={15} title="Enter a phone number using 7 to 15 digits only." aria-invalid={invalidPhoneNumber} />
+                        <input id="profile-phone-number" className="form-control profile-inputN" type="tel" name="phoneNumber" value={draft.phoneNumber} onChange={handleChange} readOnly={!isEditing} required={isEditing} autoComplete="tel" inputMode="numeric" pattern={String.raw`\d{${MAX_PHONE_NUMBER_LENGTH}}`} maxLength={MAX_PHONE_NUMBER_LENGTH} title={`Enter a phone number ${MAX_PHONE_NUMBER_LENGTH} digits only.`} aria-invalid={invalidPhoneNumber} />
                     </div>
                 </div>
                 {validationError && <p className="text-danger mt-3 mb-0" role="alert">{validationError}</p>}

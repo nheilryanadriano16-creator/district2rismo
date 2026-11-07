@@ -22,6 +22,7 @@ export function HostN({ initialSection = 'Dashboard', preview = false }) {
     const [selectedSection, setSelectedSection] = useState(routeState?.section || initialSection)
     const [selectedProperty, setSelectedProperty] = useState(routeState?.property || null)
     const [selectedBooking, setSelectedBooking] = useState(null) // Added booking state
+    const [bookingsInitialFilter, setBookingsInitialFilter] = useState('All')
     const navigate = useNavigate()
     const { logout } = useAuth()
 
@@ -33,6 +34,11 @@ export function HostN({ initialSection = 'Dashboard', preview = false }) {
     const showBookingDetails = (booking) => {
         setSelectedBooking(booking)
         setSelectedSection('Booking Details') // Switch view to booking details
+    }
+
+    const showPendingBookings = () => {
+        setBookingsInitialFilter('Pending')
+        setSelectedSection('Bookings')
     }
 
     const handleViewProperty = (property) => {
@@ -86,7 +92,14 @@ export function HostN({ initialSection = 'Dashboard', preview = false }) {
 
                     <div className={isFullWidth ? 'col-12' : 'col-12 col-lg-9'}>
                         {selectedSection === 'Dashboard' ? (
-                            <HostDashboardN onViewBookings={() => setSelectedSection('Bookings')} />
+                            <HostDashboardN
+                                onViewBookings={() => {
+                                    setBookingsInitialFilter('All')
+                                    setSelectedSection('Bookings')
+                                }}
+                                onViewProperties={() => setSelectedSection('Properties')}
+                                onViewPendingRequests={showPendingBookings}
+                            />
                         ) : selectedSection === 'Notifications' ? (
                             <HostNotificationN />
                         ) : selectedSection === 'Properties' ? (
@@ -96,7 +109,10 @@ export function HostN({ initialSection = 'Dashboard', preview = false }) {
                                 onDeleteProperty={handleDeleteProperty}
                             />
                         ) : selectedSection === 'Bookings' ? (
-                            <HostBookingsN onViewBooking={showBookingDetails} />
+                            <HostBookingsN
+                                onViewBooking={showBookingDetails}
+                                initialFilter={bookingsInitialFilter}
+                            />
                         ) : selectedSection === 'Booking Details' ? (
                             <HostBookingDetailsN
                                 booking={selectedBooking}

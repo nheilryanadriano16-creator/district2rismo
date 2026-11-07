@@ -17,9 +17,9 @@ const formatDate = (date) => {
     })
 }
 
-export const HostBookingsN = ({ onViewBooking }) => {
+export const HostBookingsN = ({ onViewBooking, initialFilter = 'All' }) => {
     const { currentUser } = useAuth()
-    const [activeFilter, setActiveFilter] = useState('All')
+    const [activeFilter, setActiveFilter] = useState(initialFilter)
     const [search, setSearch] = useState('')
     const [bookings, setBookings] = useState([])
     const [properties, setProperties] = useState([])

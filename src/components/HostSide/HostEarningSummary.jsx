@@ -7,6 +7,21 @@ import { fetchHostBookings, fetchHostProperties, parseAmount } from '../../utils
 const money = (amount) =>
     `₱${Number(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
 
+const normalizeName = (value) => String(value || '').trim().toLowerCase()
+
+const getPropertyImage = (property) => {
+    const cover = property?.mediaPhotos?.cover?.[0] || property?.media?.cover?.[0]
+    return resolveUploadUrl(
+        property?.image
+        || property?.imageUrl
+        || property?.images?.[0]
+        || cover?.preview
+        || cover?.localPath
+        || cover?.url
+        || ''
+    )
+}
+
 export const HostEarningSummary = () => {
     const { currentUser } = useAuth()
     const [period, setPeriod] = useState('This Month')
@@ -38,6 +53,8 @@ export const HostEarningSummary = () => {
                 const currentYear = now.getFullYear()
                 const properties = await fetchHostProperties(currentUser.uid, { email: currentUser.email })
                 const bookings = await fetchHostBookings(currentUser.uid, properties)
+                const propertiesById = new Map(properties.map((property) => [property.id, property]))
+                const propertiesByName = new Map(properties.map((property) => [normalizeName(property.name), property]))
                 let totalAmount = 0
                 let completed = 0
                 const txList = []
@@ -61,17 +78,38 @@ export const HostEarningSummary = () => {
 
                         if ((period === 'This Month' && isThisMonth) || (period === 'This Year' && isThisYear)) {
                             const amount = parseAmount(data.total || data.totalAmount || data.amountPaid || 0)
+                            const bookingPropertyId = data.propertyId
+                                || data.propertyUid
+                                || data.placeId
+                                || data.listingId
+                                || data.resortId
+                                || data.property?.id
+                            const propertyName = data.propertyName
+                                || data.property?.name
+                                || data.resortName
+                                || data.resort
+                            const property = propertiesById.get(bookingPropertyId)
+                                || propertiesByName.get(normalizeName(propertyName))
+                            const bookingImage = data.propertyImage
+                                || data.resortImage
+                                || data.imageUrl
+                                || data.image
+                                || data.property?.image
+                                || data.property?.imageUrl
+                                || data.property?.images?.[0]
+                            const transactionImage = resolveUploadUrl(bookingImage || '') || getPropertyImage(property)
+
                             totalAmount += amount
                             completed += 1
 
                             txList.push({
                                 id: data.id,
-                                resort: data.propertyName || data.resort || 'Resort Property',
+                                resort: propertyName || property?.name || 'Resort Property',
                                 booking: data.session || 'Day Tour',
                                 date: bookingDate.toLocaleDateString('en-PH'),
                                 amount: money(amount),
                                 rawAmount: amount,
-                                image: resolveUploadUrl(data.imageUrl || data.image) || resortImage,
+                                image: transactionImage || resortImage,
                             })
                         }
                     }
@@ -159,6 +197,11 @@ export const HostEarningSummary = () => {
                                 className="host-transaction-imageN rounded-2 flex-shrink-0"
                                 src={transaction.image}
                                 alt={transaction.resort}
+                                onError={(event) => {
+                                    if (event.currentTarget.src !== resortImage) {
+                                        event.currentTarget.src = resortImage
+                                    }
+                                }}
                             />
 
                             <div className="flex-grow-1">

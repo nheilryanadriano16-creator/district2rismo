@@ -5,6 +5,7 @@ import {
     CheckoutElementsProvider,
     useCheckoutElements,
 } from '@stripe/react-stripe-js/checkout'
+import { useAuth } from '../context/AuthContext'
 
 const stripePromise = loadStripe(
     import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
@@ -13,16 +14,15 @@ const stripePromise = loadStripe(
 const API_URL =
     import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:4242'
 
-function PaymentForm() {
+function PaymentForm({ accountEmail }) {
     const checkoutState = useCheckoutElements()
     const [loading, setLoading] = useState(false)
     const [errorMessage, setErrorMessage] = useState('')
-    const [email, setEmail] = useState('')
 
     const handlePayment = async (event) => {
         event.preventDefault()
 
-        if (checkoutState.type !== 'success' || loading) {
+        if (checkoutState.type !== 'success' || loading || !accountEmail) {
             return
         }
 
@@ -31,7 +31,7 @@ function PaymentForm() {
 
         try {
             const result = await checkoutState.checkout.confirm({
-                email: email.trim(),
+                email: accountEmail,
             })
 
             if (result.type === 'error') {
@@ -63,15 +63,7 @@ function PaymentForm() {
     return (
         <form onSubmit={handlePayment}>
             <div className="stripe-payment-box">
-                <label>
-                    Email
-                    <input
-                        type="email"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        required
-                    />
-                </label>
+                <p className="pay-note">Receipt email: {accountEmail || 'Your signed-in account email is unavailable.'}</p>
                 <PaymentElement />
             </div>
 
@@ -84,8 +76,8 @@ function PaymentForm() {
             <button
                 type="submit"
                 className="button next-btn"
-                disabled={loading}            >
-                {loading ? 'Processing...' : 'Pay securely'}
+                disabled={loading || !accountEmail}>
+                {loading ? 'Processing...' : accountEmail ? 'Pay securely' : 'Account email unavailable'}
             </button>
 
             <p className="pay-note">
@@ -96,6 +88,7 @@ function PaymentForm() {
 }
 
 export default function StripePaymentN({ booking, payOption }) {
+    const { currentUser } = useAuth()
     const [clientSecret, setClientSecret] = useState('')
     const [errorMessage, setErrorMessage] = useState('')
     const [loading, setLoading] = useState(true)
@@ -106,6 +99,7 @@ export default function StripePaymentN({ booking, payOption }) {
     const cottages = booking?.cottages || []
     const resortName = booking?.resort?.name || booking?.property?.name
     const totalAmount = booking?.total
+    const accountEmail = currentUser?.email?.trim() || ''
 
     useEffect(() => {
         const controller = new AbortController()
@@ -206,7 +200,7 @@ export default function StripePaymentN({ booking, payOption }) {
                 },
             }}
         >
-            <PaymentForm />
+            <PaymentForm accountEmail={accountEmail} />
         </CheckoutElementsProvider>
     )
 }

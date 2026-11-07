@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { fetchHostProperties, fetchHostBookings, formatHostDate } from '../../utils/hostData'
 
-export const HostDashboardN = ({ onViewBookings }) => {
+export const HostDashboardN = ({ onViewBookings, onViewProperties, onViewPendingRequests }) => {
     const { currentUser } = useAuth()
     const [stats, setStats] = useState([
-        { label: <>Total Bookings<br />(This Month)</>, value: '0', highlight: true },
-        { label: 'My Properties', value: '0' },
-        { label: <>Pending<br />Request</>, value: '0' },
+        { label: <>Total Bookings<br />(This Month)</>, value: '0', highlight: true, action: 'bookings' },
+        { label: 'My Properties', value: '0', action: 'properties' },
+        { label: <>Pending<br />Request</>, value: '0', action: 'pending' },
     ])
     const [recentBookings, setRecentBookings] = useState([])
 
@@ -34,9 +34,9 @@ export const HostDashboardN = ({ onViewBookings }) => {
                 )
                 if (!isMounted) return
                 setStats([
-                    { label: <>Total Bookings<br />(This Month)</>, value: String(monthBookings.length), highlight: true },
-                    { label: 'My Properties', value: String(properties.length) },
-                    { label: <>Pending<br />Request</>, value: String(pending.length) },
+                    { label: <>Total Bookings<br />(This Month)</>, value: String(monthBookings.length), highlight: true, action: 'bookings' },
+                    { label: 'My Properties', value: String(properties.length), action: 'properties' },
+                    { label: <>Pending<br />Request</>, value: String(pending.length), action: 'pending' },
                 ])
                 setRecentBookings(reservations.slice(0, 5).map((booking) => ({
                     id: booking.id,
@@ -63,13 +63,24 @@ export const HostDashboardN = ({ onViewBookings }) => {
         <div className="row g-2 host-statsN mb-4">
             {stats.map((stat, index) => (
                 <div key={index} className="col-4">
-                    <article className={`host-stat-cardN h-100 rounded-3 p-2 p-md-3 ${stat.highlight ? 'highlight' : ''}`}>
+                    <button
+                        type="button"
+                        className={`host-stat-cardN host-stat-card-buttonN h-100 w-100 rounded-3 p-2 p-md-3 ${stat.highlight ? 'highlight' : ''}`}
+                        onClick={
+                            stat.action === 'properties'
+                                ? onViewProperties
+                                : stat.action === 'pending'
+                                    ? onViewPendingRequests
+                                    : onViewBookings
+                        }
+                        aria-label={`${typeof stat.label === 'string' ? stat.label : index === 0 ? 'Total bookings this month' : 'Pending requests'}: ${stat.value}. Open ${index === 1 ? 'properties' : 'bookings'}.`}
+                    >
                         <div className="d-flex justify-content-between gap-2">
                             <span className="small lh-sm">{stat.label}</span>
                             <i className="bi bi-arrow-up-right-circle fs-5" aria-hidden="true" />
                         </div>
                         <p className="display-6 fw-bold mb-0">{stat.value}</p>
-                    </article>
+                    </button>
                 </div>
             ))}
         </div>

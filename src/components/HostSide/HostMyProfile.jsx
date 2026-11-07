@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { saveHostProfile } from '../../utils/hostData'
 import { useNotification } from '../../context/NotificationContext'
@@ -6,41 +6,42 @@ import {
     getMaxDateForAge,
     isAdultDateOfBirth,
     isValidPhoneNumber,
+    MAX_PHONE_NUMBER_LENGTH,
+    normalizePhoneNumber,
     validateProfileDetails,
 } from '../../utils/profileValidation'
 
-const emptyProfile = {
-    firstName: '',
-    dateOfBirth: '',
-    lastName: '',
-    phoneNumber: '',
+function getProfile(userData) {
+    return {
+        firstName: userData?.firstName || '',
+        lastName: userData?.lastName || '',
+        dateOfBirth: userData?.dateOfBirth || '',
+        phoneNumber: normalizePhoneNumber(userData?.phoneNumber),
+    }
 }
 
 export function HostMyProfile() {
     const { currentUser, userData, updateUserData } = useAuth()
     const { showNotification } = useNotification()
-    const [profile, setProfile] = useState(emptyProfile)
-    const [draft, setDraft] = useState(emptyProfile)
+    const [syncedUserData, setSyncedUserData] = useState(userData)
+    const [profile, setProfile] = useState(() => getProfile(userData))
+    const [draft, setDraft] = useState(() => getProfile(userData))
     const [isEditing, setIsEditing] = useState(false)
     const [validationError, setValidationError] = useState('')
     const [maxDateOfBirth] = useState(() => getMaxDateForAge())
     const invalidDateOfBirth = Boolean(validationError && !isAdultDateOfBirth(draft.dateOfBirth))
     const invalidPhoneNumber = Boolean(validationError && !isValidPhoneNumber(draft.phoneNumber))
 
-    useEffect(() => {
-        const nextProfile = {
-            firstName: userData?.firstName || '',
-            lastName: userData?.lastName || '',
-            dateOfBirth: userData?.dateOfBirth || '',
-            phoneNumber: userData?.phoneNumber || '',
-        }
+    if (userData !== syncedUserData) {
+        const nextProfile = getProfile(userData)
+        setSyncedUserData(userData)
         setProfile(nextProfile)
         setDraft(nextProfile)
-    }, [userData])
+    }
 
     const handleChange = (event) => {
         const { name, value } = event.target
-        const nextValue = name === 'phoneNumber' ? value.replace(/\D/g, '').slice(0, 15) : value
+        const nextValue = name === 'phoneNumber' ? normalizePhoneNumber(value) : value
         setDraft((current) => ({ ...current, [name]: nextValue }))
         setValidationError('')
     }
@@ -96,9 +97,9 @@ export function HostMyProfile() {
                             autoComplete={field.autoComplete}
                             max={field.name === 'dateOfBirth' ? maxDateOfBirth : undefined}
                             required={isEditing && ['dateOfBirth', 'phoneNumber'].includes(field.name)}
-                            pattern={field.name === 'phoneNumber' ? String.raw`\d{7,15}` : undefined}
-                            maxLength={field.name === 'phoneNumber' ? 15 : undefined}
-                            title={field.name === 'phoneNumber' ? 'Enter a phone number using 7 to 15 digits only.' : undefined}
+                            pattern={field.name === 'phoneNumber' ? String.raw`\d{${MAX_PHONE_NUMBER_LENGTH}}` : undefined}
+                            maxLength={field.name === 'phoneNumber' ? MAX_PHONE_NUMBER_LENGTH : undefined}
+                            title={field.name === 'phoneNumber' ? `Enter a phone number ${MAX_PHONE_NUMBER_LENGTH} digits only.` : undefined}
                             inputMode={field.name === 'phoneNumber' ? 'numeric' : undefined}
                             aria-invalid={field.name === 'dateOfBirth'
                                 ? invalidDateOfBirth

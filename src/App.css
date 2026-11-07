@@ -615,6 +615,13 @@
 .terms-conditions-modalN .modal-body {
     color: #E4DFD8;
     line-height: 1.55;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.privacy-policy-modalN .modal-body::-webkit-scrollbar,
+.terms-conditions-modalN .modal-body::-webkit-scrollbar {
+    display: none;
 }
 
 .privacy-policy-sectionN {
@@ -1134,6 +1141,29 @@ textarea:-webkit-autofill:focus {
     min-height: 118px;
     background-color: #38362D;
     color: #E4DFD8;
+}
+
+.host-stat-card-buttonN {
+    display: block;
+    border: 0;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: opacity .15s ease-in-out, transform .15s ease-in-out;
+}
+
+.host-stat-card-buttonN:hover {
+    opacity: .88;
+    transform: translateY(-1px);
+}
+
+.host-stat-card-buttonN:focus-visible {
+    outline: 2px solid #FFB200;
+    outline-offset: 3px;
+}
+
+.host-stat-card-buttonN:active {
+    transform: translateY(0);
 }
 
 .host-stat-cardN.highlight {
