@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { collection, getDocs, query, where } from 'firebase/firestore'
-import { db } from '../firebase'
 
 const peso = (n) =>
     (Number(n) || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })
@@ -30,61 +28,9 @@ function BookingCard({ cottages = [], resort, property }) {
     const navigate = useNavigate()
     const { currentUser } = useAuth()
     const [today] = useState(() => toDateKey(new Date()))
-    const [bookedDates, setBookedDates] = useState(new Set())
-    const [availabilityLoading, setAvailabilityLoading] = useState(true)
-    const [availabilityError, setAvailabilityError] = useState('')
-    const [dateError, setDateError] = useState('')
     const [date, setDate] = useState(today)
-    const propertyId = property?.id
     const tours = property?.tourSettings || {}
     const defaultBasePrice = Number(property?.price || property?.rate || 15000)
-
-    useEffect(() => {
-        let active = true
-
-        async function loadAvailability() {
-            setAvailabilityLoading(true)
-            setAvailabilityError('')
-            setBookedDates(new Set())
-
-            if (!propertyId) {
-                setAvailabilityError('This property is missing its ID, so availability cannot be checked.')
-                setAvailabilityLoading(false)
-                return
-            }
-
-            try {
-                const bookingsQuery = query(
-                    collection(db, 'bookings'),
-                    where('propertyId', '==', propertyId)
-                )
-                const snapshot = await getDocs(bookingsQuery)
-                const unavailableStatuses = new Set(['cancelled', 'rejected'])
-                const dates = new Set(snapshot.docs
-                    .filter((booking) => !unavailableStatuses.has(
-                        String(booking.data().status || '').toLowerCase()
-                    ))
-                    .map((booking) => toDateKey(booking.data().date))
-                    .filter(Boolean))
-                if (active) {
-                    setBookedDates(dates)
-                    setDate((currentDate) => dates.has(currentDate) ? '' : currentDate)
-                }
-            } catch (error) {
-                console.error('Unable to load property availability:', error)
-                if (active) {
-                    setAvailabilityError(error.code === 'permission-denied'
-                        ? 'Firestore denied access to this property’s booking dates. Check the bookings read rule for customers.'
-                        : error.message || 'Could not check availability. Please try again later.')
-                }
-            } finally {
-                if (active) setAvailabilityLoading(false)
-            }
-        }
-
-        loadAvailability()
-        return () => { active = false }
-    }, [propertyId])
 
     const availableTours = []
     if (tours.day?.enabled) {
@@ -172,12 +118,6 @@ function BookingCard({ cottages = [], resort, property }) {
 
     const handleBook = () => {
         if (!date) return
-        if (availabilityLoading || availabilityError) return
-        if (bookedDates.has(date)) {
-            setDate('')
-            setDateError('That date is already booked for this property. Please choose another date.')
-            return
-        }
 
         if (!currentUser) {
             navigate('/login', { state: { returnUrl: window.location.pathname } })
@@ -247,25 +187,12 @@ function BookingCard({ cottages = [], resort, property }) {
                 <label className='form-label small mb-1 text-white'>Date</label>
                 <input
                     type='date'
-                    className='booking-input booking-date-input form-control text-white'
+                    className='booking-input form-control text-white bg-transparent border-secondary'
                     value={date}
                     min={today}
-                    onChange={(event) => {
-                        const selectedDate = event.target.value
-                        if (bookedDates.has(selectedDate)) {
-                            event.target.value = date
-                            setDateError('That date is already booked for this property. Please choose another date.')
-                            return
-                        }
-                        setDateError('')
-                        setDate(selectedDate)
-                    }}
+                    onChange={(event) => setDate(event.target.value)}
                     style={{ colorScheme: 'dark' }}
-                    disabled={availabilityLoading || Boolean(availabilityError)}
                 />
-                {availabilityLoading && <small className='text-white-50 d-block mt-1' role='status'>Checking available dates…</small>}
-                {availabilityError && <small className='text-warning d-block mt-1' role='alert'>{availabilityError}</small>}
-                {dateError && <small className='text-warning d-block mt-1' role='alert'>{dateError}</small>}
             </div>
 
             <div className='mb-3'>
@@ -351,7 +278,7 @@ function BookingCard({ cottages = [], resort, property }) {
                 type='button'
                 className='book-btn btn btn-warning w-100 rounded-pill py-2 fw-bold text-dark'
                 onClick={handleBook}
-                disabled={!date || availabilityLoading || Boolean(availabilityError) || bookedDates.has(date)}
+                disabled={!date}
             >
                 Book Now
             </button>
