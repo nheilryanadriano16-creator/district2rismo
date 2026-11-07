@@ -6,6 +6,7 @@ import { SignUpN } from './SignUpN.jsx'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { getDashboardPath } from '../../utils/roles'
+import { PrivacyPolicyModal } from './PrivacyPolicyModal.jsx'
 
 export const LoginN = ({ onClose }) => {
     const [email, setEmail] = useState('')
@@ -13,6 +14,7 @@ export const LoginN = ({ onClose }) => {
     const [showPassword, setShowPassword] = useState(false)
     const [showPasswordInput, setShowPasswordInput] = useState(false)
     const [showSignUp, setShowSignUp] = useState(false)
+    const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
 
@@ -124,14 +126,15 @@ export const LoginN = ({ onClose }) => {
                 </p>
                 
                 <div className="d-flex justify-content-between align-items-center mt-2">
-                    <a className="smallN text-white fw-semibold" href="#">
+                    <button className="btn btn-link smallN text-white fw-semibold p-0 text-decoration-none" type="button" onClick={() => setShowPrivacyPolicy(true)}>
                         Privacy Policy
-                    </a>
+                    </button>
                     {showPasswordInput && (
                         <button type="button" className="btn btn-link text-warning p-0 small text-decoration-none" onClick={() => { setShowPasswordInput(false); setPassword(''); setError(''); }}>
                             Back
                         </button>
                     )}
+                    <PrivacyPolicyModal show={showPrivacyPolicy} onHide={() => setShowPrivacyPolicy(false)} />
                 </div>
 
                 <div className="d-flex flex-column gap-2 mt-4">

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { getDashboardPath } from '../../utils/roles'
 import { getMaxDateForAge, isAdultDateOfBirth } from '../../utils/profileValidation'
+import { PrivacyPolicyModal } from './PrivacyPolicyModal.jsx'
+import { TermsConditionsModal } from './TermsConditionsModal.jsx'
 
 export const SignUpN = ({ email: initialEmail = '', onBack, onClose, onAuthenticated }) => {
     const [showPassword, setShowPassword] = useState(false)
@@ -11,6 +13,8 @@ export const SignUpN = ({ email: initialEmail = '', onBack, onClose, onAuthentic
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
     const [maxDateOfBirth] = useState(() => getMaxDateForAge())
+    const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
+    const [showTermsConditions, setShowTermsConditions] = useState(false)
 
     const { signup } = useAuth()
     const navigate = useNavigate()
@@ -108,13 +112,13 @@ export const SignUpN = ({ email: initialEmail = '', onBack, onClose, onAuthentic
                     </div>
                 </div>
 
-                <p className="small signup-mutedN mb-0">By selecting <strong>Agree and continue</strong>, you agree to our <a className="signup-linkN" href="#">Terms of Service</a> and acknowledge our <a className="signup-linkN" href="#">Privacy Policy</a>.</p>
+                <p className="small signup-mutedN mb-0">By selecting <strong>Agree and continue</strong>, you agree to our <button className="btn btn-link signup-linkN p-0 align-baseline text-decoration-none" type="button" onClick={() => setShowTermsConditions(true)}>Terms and Conditions</button> and acknowledge our <button className="btn btn-link signup-linkN p-0 align-baseline text-decoration-none" type="button" onClick={() => setShowPrivacyPolicy(true)}>Privacy Policy</button>.</p>
 
                 <button className="btn btn-warning btn-lg w-100 fw-bold mt-2" type="submit" disabled={loading}>{loading ? 'Creating account...' : 'Agree and continue'}</button>
             </form>
+            <PrivacyPolicyModal show={showPrivacyPolicy} onHide={() => setShowPrivacyPolicy(false)} />
+            <TermsConditionsModal show={showTermsConditions} onHide={() => setShowTermsConditions(false)} />
         </section>
     )
 }
-
-
 

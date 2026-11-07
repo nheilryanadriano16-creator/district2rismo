@@ -571,6 +571,83 @@
     color: #FFB200;
 }
 
+.privacy-policy-dialogN {
+    width: min(48rem, calc(100vw - 1.5rem));
+    max-width: none;
+}
+
+.privacy-policy-modalN,
+.terms-conditions-modalN {
+    max-height: min(90vh, 52rem);
+    border: 1px solid #38362D;
+    border-radius: 1rem;
+    background-color: #38362D;
+    color: #E4DFD8;
+}
+
+.privacy-policy-modalN .modal-header,
+.terms-conditions-modalN .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    border-bottom: 1px solid rgb(255 178 0 / 25%);
+    background-color: #38362D;
+    color: #E4DFD8;
+}
+
+.privacy-policy-modalN .modal-title,
+.terms-conditions-modalN .modal-title {
+    color: #FFB200;
+    font-weight: 700;
+}
+
+.privacy-policy-effectiveN {
+    color: #BDBBB5;
+    font-size: .85rem;
+}
+
+.privacy-policy-modalN .btn-close,
+.terms-conditions-modalN .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+.privacy-policy-modalN .modal-body,
+.terms-conditions-modalN .modal-body {
+    color: #E4DFD8;
+    line-height: 1.55;
+}
+
+.privacy-policy-sectionN {
+    margin-top: 1.5rem;
+}
+
+.privacy-policy-sectionN h3 {
+    margin-bottom: .65rem;
+    color: #FFB200;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.privacy-policy-subsectionN {
+    margin: 1rem 0 0 1rem;
+}
+
+.privacy-policy-subsectionN h4 {
+    color: #E4DFD8;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.privacy-policy-modalN ul,
+.terms-conditions-modalN ul {
+    padding-left: 1.5rem;
+}
+
+.privacy-policy-modalN li,
+.terms-conditions-modalN li {
+    margin-bottom: .25rem;
+}
+
 
 @media (max-width: 576px) {
     .signup-cardN {
