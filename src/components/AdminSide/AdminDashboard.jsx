@@ -7,9 +7,9 @@ import { resolveUploadUrl } from '../../utils/uploads'
 
 export function AdminDashboard() {
     const navigate = useNavigate()
-    const [usersCount, setUsersCount] = useState(10000)
-    const [hostsCount, setHostsCount] = useState(5000)
-    const [propertiesCount, setPropertiesCount] = useState(26)
+    const [usersCount, setUsersCount] = useState(0)
+    const [hostsCount, setHostsCount] = useState(0)
+    const [propertiesCount, setPropertiesCount] = useState(0)
     const [popularResorts, setPopularResorts] = useState([
     ])
     const [loading, setLoading] = useState(true)
@@ -24,17 +24,26 @@ export function AdminDashboard() {
                     getDocs(collection(db, 'properties')),
                     getDocs(collection(db, 'bookings')),
                 ])
-                if (!usersSnap.empty) {
-                    const usersList = usersSnap.docs.map(doc => doc.data())
-                    const totalUsers = usersList.length
-                    const hosts = usersList.filter(u => u.role === 'host').length
-                    setUsersCount(totalUsers)
-                    setHostsCount(hosts)
-                }
+                const usersList = usersSnap.docs.map(doc => doc.data())
+                const hosts = usersList.filter(
+                    (user) => String(user.role || '').trim().toLowerCase() === 'host'
+                ).length
+                const customers = usersList.filter((user) => {
+                    const role = String(user.role || 'customer').trim().toLowerCase()
+                    return role !== 'host' && role !== 'admin'
+                }).length
+                setUsersCount(customers)
+                setHostsCount(hosts)
+
+                const listedProperties = propertiesSnap.docs.filter((propertyDoc) =>
+                    ['approved', 'active'].includes(
+                        String(propertyDoc.data().status || '').trim().toLowerCase()
+                    )
+                )
+                setPropertiesCount(listedProperties.length)
 
                 if (!propertiesSnap.empty) {
                     const props = propertiesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-                    setPropertiesCount(props.length)
 
                     const bookingCounts = new Map()
                     bookingsSnap.docs.forEach((bookingDoc) => {
