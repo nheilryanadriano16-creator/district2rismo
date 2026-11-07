@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { collection, getDocs } from 'firebase/firestore'
+import { db } from '../firebase'
 
 const peso = (n) =>
     (Number(n) || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })
@@ -25,22 +27,27 @@ const toDateKey = (value) => {
 }
 
 const getBookedDates = async (property) => {
-    const apiUrl = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:4242'
-    const params = new URLSearchParams()
-    if (property?.id) params.set('propertyId', property.id)
-    if (property?.name) params.set('propertyName', property.name)
+    const snapshot = await getDocs(collection(db, 'bookings'))
+    const propertyName = String(property?.name || '').trim().toLowerCase()
+    const propertyId = property?.id
+    const inactiveStatuses = ['rejected', 'cancelled', 'canceled', 'failed', 'expired']
 
-    const availabilityUrl = new URL('/booked-dates', apiUrl)
-    availabilityUrl.search = params.toString()
-    const response = await fetch(availabilityUrl)
-    const data = await response.json()
-    if (!response.ok) {
-        throw new Error(data.error || `Date availability request failed (${response.status}).`)
-    }
-    if (!Array.isArray(data.bookedDates)) {
-        throw new Error('The availability service returned invalid data.')
-    }
-    return new Set(data.bookedDates)
+    return new Set(snapshot.docs.flatMap((bookingDoc) => {
+        const booking = bookingDoc.data()
+        const bookingPropertyId = booking.propertyId || booking.property?.id
+        const bookingPropertyName = String(
+            booking.propertyName ||
+            booking.property?.name ||
+            (typeof booking.resort === 'string' ? booking.resort : '')
+        ).trim().toLowerCase()
+        const matchesProperty = propertyId
+            ? bookingPropertyId === propertyId || (!bookingPropertyId && propertyName && bookingPropertyName === propertyName)
+            : propertyName && bookingPropertyName === propertyName
+        const status = String(booking.status || 'Pending').toLowerCase()
+        const dateKey = toDateKey(booking.date || booking.startDate)
+
+        return matchesProperty && dateKey && !inactiveStatuses.includes(status) ? [dateKey] : []
+    }))
 }
 
 function BookingCard({ cottages = [], resort, property }) {
@@ -133,7 +140,7 @@ function BookingCard({ cottages = [], resort, property }) {
             } catch (error) {
                 console.error('Error loading booked dates:', error)
                 if (isMounted) {
-                    setAvailabilityError(error.message || 'Could not load date availability. Please try again.')
+                    setAvailabilityError('Could not load date availability. Please try again.')
                     setAvailabilityLoadFailed(true)
                 }
             } finally {
@@ -211,7 +218,7 @@ function BookingCard({ cottages = [], resort, property }) {
             }
         } catch (error) {
             console.error('Error checking booking availability:', error)
-            setAvailabilityError(error.message || 'Could not verify date availability. Please try again.')
+            setAvailabilityError('Could not verify date availability. Please try again.')
             return
         } finally {
             setCheckingDate(false)
