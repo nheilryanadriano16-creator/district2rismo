@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { collection, getDocs, query, where } from 'firebase/firestore'
-import { db } from '../firebase'
+
+const API_URL = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:4242'
 
 const peso = (n) =>
     (Number(n) || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })
@@ -52,14 +52,23 @@ function BookingCard({ cottages = [], resort, property }) {
             }
 
             try {
-                const availabilityQuery = query(
-                    collection(db, 'availability'),
-                    where('propertyId', '==', propertyId)
+                const response = await fetch(
+                    new URL(`/api/properties/${encodeURIComponent(propertyId)}/booked-dates`, API_URL)
                 )
-                const snapshot = await getDocs(availabilityQuery)
-                const dates = new Set(snapshot.docs
-                    .map((availabilityDoc) => toDateKey(availabilityDoc.data().date))
-                    .filter(Boolean))
+                const contentType = response.headers.get('content-type') || ''
+                const data = contentType.includes('application/json')
+                    ? await response.json()
+                    : null
+                if (response.status === 404) {
+                    throw new Error('The availability endpoint is not deployed. Redeploy the API server, then try again.')
+                }
+                if (!response.ok) {
+                    throw new Error(data?.error || `Could not check availability (server error ${response.status}).`)
+                }
+                if (!Array.isArray(data?.dates)) {
+                    throw new Error('The availability server returned an invalid response.')
+                }
+                const dates = new Set(data.dates.map(toDateKey).filter(Boolean))
 
                 if (active) setBookedDates(dates)
             } catch (error) {
