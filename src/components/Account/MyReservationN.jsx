@@ -1,10 +1,25 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { collection, query, where, getDocs } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import resortImage from '../../images/Baliwag Featured.png'
+import { resolveUploadUrl } from '../../utils/uploads'
 
 const filters = ['All', 'Completed', 'Confirmed', 'Pending', 'Cancelled']
+
+const getPropertyImage = (property = {}) => {
+    const coverPhoto = property.mediaPhotos?.cover?.[0]
+        || property.media?.cover?.[0]
+    const image = property.image
+        || property.imageUrl
+        || property.images?.[0]
+        || coverPhoto?.preview
+        || coverPhoto?.localPath
+        || coverPhoto?.url
+        || (typeof coverPhoto === 'string' ? coverPhoto : '')
+
+    return resolveUploadUrl(image) || resortImage
+}
 
 export const MyReservationN = () => {
     const { currentUser } = useAuth()
@@ -23,25 +38,31 @@ export const MyReservationN = () => {
                     where('userId', '==', currentUser.uid)
                 )
                 const snapshot = await getDocs(q)
-                const loaded = snapshot.docs.map(docItem => {
+                const loaded = await Promise.all(snapshot.docs.map(async (docItem) => {
                     const data = docItem.data()
-                    const cottagesList = Array.isArray(data.cottages)
-                        ? data.cottages.map(c => c.name).join(', ')
-                        : (data.cottages || 'Standard Room')
+                    let property = data.property || {}
+
+                    if (data.propertyId) {
+                        try {
+                            const propertySnapshot = await getDoc(doc(db, 'properties', data.propertyId))
+                            if (propertySnapshot.exists()) property = propertySnapshot.data()
+                        } catch (propertyError) {
+                            console.error('Error fetching reservation property:', propertyError)
+                        }
+                    }
 
                     return {
                         id: docItem.id,
-                        resortName: data.propertyName || 'Resort Property',
-                        location: data.location || 'Bustos, Bulacan',
-                        image: data.image || resortImage,
+                        resortName: data.propertyName || property.name || 'Resort Property',
+                        location: data.location || property.location || property.address || 'Bustos, Bulacan',
+                        image: getPropertyImage({ ...property, ...data }),
                         session: data.session || 'Day Tour',
                         date: data.date || '',
-                        cottage: cottagesList,
                         guests: `${data.guestsCount || 1} Guests`,
                         totalPrice: data.total || 0,
                         status: data.status || 'Pending'
                     }
-                })
+                }))
                 setReservations(loaded)
             } catch (err) {
                 console.error('Error fetching user reservations:', err)
@@ -89,7 +110,15 @@ export const MyReservationN = () => {
                             <div className="row g-0 h-100">
                                 <div className="col-12 col-md-6 col-xl-5">
                                     <div className="reservation-summaryN d-flex flex-column flex-sm-row align-items-start gap-3 p-3 h-100">
-                                        <img className="reservation-imageN rounded-3 flex-shrink-0" src={reservation.image} alt={reservation.resortName} />
+                                        <img
+                                            className="reservation-imageN rounded-3 flex-shrink-0"
+                                            src={reservation.image}
+                                            alt={reservation.resortName}
+                                            onError={(event) => {
+                                                event.currentTarget.onerror = null
+                                                event.currentTarget.src = resortImage
+                                            }}
+                                        />
                                         <div className="min-w-0">
                                             <h2 className="h5 mb-1">{reservation.resortName}</h2>
                                             <p className="reservations-locationN fw-semibold mb-1">{reservation.location}</p>
@@ -103,7 +132,6 @@ export const MyReservationN = () => {
                                         <p className="small mb-2">Details:</p>
                                         <div className="d-flex justify-content-between gap-3"><span>Session</span><span className="text-end">{reservation.session}</span></div>
                                         <div className="d-flex justify-content-between gap-3"><span>Date</span><span className="text-end">{reservation.date ? new Date(`${reservation.date}T00:00:00`).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }) : '—'}</span></div>
-                                        <div className="d-flex justify-content-between gap-3"><span>Cottage</span><span className="text-end">{reservation.cottage}</span></div>
                                         <div className="d-flex justify-content-between gap-3"><span>Guest</span><span className="text-end">{reservation.guests}</span></div>
                                     </div>
                                 </div>
