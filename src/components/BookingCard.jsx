@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-
-const API_URL = import.meta.env.VITE_PAYMENT_API_URL || 'http://localhost:4242'
+import { collection, getDocs, query, where } from 'firebase/firestore'
+import { db } from '../firebase'
 
 const peso = (n) =>
     (Number(n) || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })
@@ -33,6 +33,7 @@ function BookingCard({ cottages = [], resort, property }) {
     const [bookedDates, setBookedDates] = useState(new Set())
     const [availabilityLoading, setAvailabilityLoading] = useState(true)
     const [availabilityError, setAvailabilityError] = useState('')
+    const [date, setDate] = useState(today)
     const propertyId = property?.id
     const tours = property?.tourSettings || {}
     const defaultBasePrice = Number(property?.price || property?.rate || 15000)
@@ -52,24 +53,18 @@ function BookingCard({ cottages = [], resort, property }) {
             }
 
             try {
-                const response = await fetch(
-                    new URL(`/api/properties/${encodeURIComponent(propertyId)}/booked-dates`, API_URL)
+                const bookingsQuery = query(
+                    collection(db, 'bookings'),
+                    where('propertyId', '==', propertyId)
                 )
-                const contentType = response.headers.get('content-type') || ''
-                const data = contentType.includes('application/json')
-                    ? await response.json()
-                    : null
-                if (response.status === 404) {
-                    throw new Error('The availability endpoint is not deployed. Redeploy the API server, then try again.')
-                }
-                if (!response.ok) {
-                    throw new Error(data?.error || `Could not check availability (server error ${response.status}).`)
-                }
-                if (!Array.isArray(data?.dates)) {
-                    throw new Error('The availability server returned an invalid response.')
-                }
-                const dates = new Set(data.dates.map(toDateKey).filter(Boolean))
-
+                const snapshot = await getDocs(bookingsQuery)
+                const unavailableStatuses = new Set(['cancelled', 'rejected'])
+                const dates = new Set(snapshot.docs
+                    .filter((booking) => !unavailableStatuses.has(
+                        String(booking.data().status || '').toLowerCase()
+                    ))
+                    .map((booking) => toDateKey(booking.data().date))
+                    .filter(Boolean))
                 if (active) setBookedDates(dates)
             } catch (error) {
                 console.error('Unable to load property availability:', error)
@@ -114,8 +109,6 @@ function BookingCard({ cottages = [], resort, property }) {
     ]
 
     const [selectedTourKey, setSelectedTourKey] = useState(defaultTours[0].key)
-    const [date, setDate] = useState(today)
-    const [dateError, setDateError] = useState('')
     const [guestsCount, setGuestsCount] = useState(property?.capacity || 10)
     const [selectedCottageIds, setSelectedCottageIds] = useState([])
     const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -246,11 +239,7 @@ function BookingCard({ cottages = [], resort, property }) {
                     min={today}
                     onChange={(event) => {
                         const selectedDate = event.target.value
-                        if (bookedDates.has(selectedDate)) {
-                            setDateError('That date is already booked. Please choose another date.')
-                            return
-                        }
-                        setDateError('')
+                        if (bookedDates.has(selectedDate)) return
                         setDate(selectedDate)
                     }}
                     style={{ colorScheme: 'dark' }}
@@ -258,7 +247,6 @@ function BookingCard({ cottages = [], resort, property }) {
                 />
                 {availabilityLoading && <small className='text-white-50 d-block mt-1' role='status'>Checking available dates…</small>}
                 {availabilityError && <small className='text-warning d-block mt-1' role='alert'>{availabilityError}</small>}
-                {dateError && <small className='text-warning d-block mt-1' role='alert'>{dateError}</small>}
             </div>
 
             <div className='mb-3'>

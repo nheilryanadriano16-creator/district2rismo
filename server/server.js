@@ -115,35 +115,6 @@ app.get('/', (req, res) => {
     res.send('District2Rismo payment & upload API is running.')
 })
 
-app.get('/api/properties/:id/booked-dates', async (req, res) => {
-    const { id } = req.params
-    if (!id || id.length > 200) {
-        return res.status(400).json({ error: 'Invalid property ID.' })
-    }
-    if (!getApps().length) {
-        return res.status(503).json({ error: 'Booking availability is not configured on the API.' })
-    }
-
-    try {
-        const snapshot = await getFirestore()
-            .collection('bookings')
-            .where('propertyId', '==', id)
-            .get()
-        const unavailableStatuses = new Set(['cancelled', 'rejected'])
-        const dates = [...new Set(snapshot.docs
-            .filter((booking) => !unavailableStatuses.has(
-                String(booking.data().status || '').toLowerCase()
-            ))
-            .map((booking) => booking.data().date)
-            .filter((date) => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)))]
-
-        return res.json({ dates })
-    } catch (error) {
-        console.error('Booking availability lookup failed:', error.message)
-        return res.status(500).json({ error: 'Could not load booking availability.' })
-    }
-})
-
 app.post('/api/upload', requireFirebaseAuth, handleUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded.' })
