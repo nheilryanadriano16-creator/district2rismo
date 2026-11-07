@@ -11,6 +11,7 @@ import {
 import { sendPasswordResetEmail } from 'firebase/auth'
 import { auth, db } from '../firebase'
 import { resolveUploadUrl } from './uploads'
+import { validateProfileDetails } from './profileValidation'
 
 const PLATFORM_FEE_RATE = 0.03
 
@@ -533,6 +534,8 @@ export function summarizeEarnings(reservations, period = 'This Month') {
 
 export async function saveHostProfile(uid, profile) {
   if (!uid) throw new Error('You must be signed in to update your profile.')
+  const validationError = validateProfileDetails(profile)
+  if (validationError) throw new Error(validationError)
   await setDoc(doc(db, 'users', uid), {
     firstName: profile.firstName || '',
     lastName: profile.lastName || '',

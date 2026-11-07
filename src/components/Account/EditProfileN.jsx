@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
+import {
+    getMaxDateForAge,
+    isAdultDateOfBirth,
+    isValidPhoneNumber,
+    validateProfileDetails,
+} from '../../utils/profileValidation'
 
 export const EditProfileN = () => {
     const { currentUser, userData } = useAuth()
@@ -14,6 +20,10 @@ export const EditProfileN = () => {
     const [draft, setDraft] = useState(profile)
     const [isEditing, setIsEditing] = useState(false)
     const [saving, setSaving] = useState(false)
+    const [validationError, setValidationError] = useState('')
+    const [maxDateOfBirth] = useState(() => getMaxDateForAge())
+    const invalidDateOfBirth = Boolean(validationError && !isAdultDateOfBirth(draft.dateOfBirth))
+    const invalidPhoneNumber = Boolean(validationError && !isValidPhoneNumber(draft.phoneNumber))
 
     useEffect(() => {
         async function loadProfile() {
@@ -49,22 +59,32 @@ export const EditProfileN = () => {
 
     const handleChange = (event) => {
         const { name, value } = event.target
-        setDraft((current) => ({ ...current, [name]: value }))
+        const nextValue = name === 'phoneNumber' ? value.replace(/\D/g, '').slice(0, 15) : value
+        setDraft((current) => ({ ...current, [name]: nextValue }))
+        setValidationError('')
     }
 
     const handleEdit = () => {
         setDraft(profile)
+        setValidationError('')
         setIsEditing(true)
     }
 
     const handleCancel = () => {
         setDraft(profile)
+        setValidationError('')
         setIsEditing(false)
     }
 
     const handleSubmit = async (event) => {
         event.preventDefault()
         if (!currentUser?.uid) return
+
+        const error = validateProfileDetails(draft)
+        if (error) {
+            setValidationError(error)
+            return
+        }
 
         try {
             setSaving(true)
@@ -90,7 +110,7 @@ export const EditProfileN = () => {
     return (
         <section className="profile-panelN container-fluid p-3 p-md-4 p-lg-5 text-white">
             <h1 className="h2 fw-bold profile-titleN mb-4">My Profile</h1>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
                 <div className="row g-3 g-lg-4">
                     <div className="col-12 col-md-6">
                         <label className="form-label profile-labelN" htmlFor="profile-first-name">First Name</label>
@@ -98,7 +118,7 @@ export const EditProfileN = () => {
                     </div>
                     <div className="col-12 col-md-6">
                         <label className="form-label profile-labelN" htmlFor="profile-date-of-birth">Date of Birth</label>
-                        <input id="profile-date-of-birth" className="form-control profile-inputN" type="date" name="dateOfBirth" value={draft.dateOfBirth} onChange={handleChange} readOnly={!isEditing} autoComplete="bday" />
+                        <input id="profile-date-of-birth" className="form-control profile-inputN" type="date" name="dateOfBirth" value={draft.dateOfBirth} onChange={handleChange} readOnly={!isEditing} max={maxDateOfBirth} required={isEditing} autoComplete="bday" aria-invalid={invalidDateOfBirth} />
                     </div>
                     <div className="col-12 col-md-6">
                         <label className="form-label profile-labelN" htmlFor="profile-last-name">Last Name</label>
@@ -106,9 +126,10 @@ export const EditProfileN = () => {
                     </div>
                     <div className="col-12 col-md-6">
                         <label className="form-label profile-labelN" htmlFor="profile-phone-number">Phone Number</label>
-                        <input id="profile-phone-number" className="form-control profile-inputN" type="tel" name="phoneNumber" value={draft.phoneNumber} onChange={handleChange} readOnly={!isEditing} autoComplete="tel" />
+                        <input id="profile-phone-number" className="form-control profile-inputN" type="tel" name="phoneNumber" value={draft.phoneNumber} onChange={handleChange} readOnly={!isEditing} required={isEditing} autoComplete="tel" inputMode="numeric" pattern={String.raw`\d{7,15}`} maxLength={15} title="Enter a phone number using 7 to 15 digits only." aria-invalid={invalidPhoneNumber} />
                     </div>
                 </div>
+                {validationError && <p className="text-danger mt-3 mb-0" role="alert">{validationError}</p>}
                 <div className="d-flex justify-content-end gap-2 mt-4">
                     {isEditing ? (
                         <>

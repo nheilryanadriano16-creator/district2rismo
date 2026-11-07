@@ -9,6 +9,7 @@ import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firest
 import { auth, db } from "../firebase";
 import { useNotification } from "./NotificationContext";
 import { normalizeRole } from "../utils/roles";
+import { isAdultDateOfBirth } from "../utils/profileValidation";
 
 const AuthContext = createContext();
 
@@ -20,6 +21,10 @@ export const AuthProvider = ({ children }) => {
   const { showNotification } = useNotification();
 
   const signup = async (email, password, extraData = {}) => {
+    if (!isAdultDateOfBirth(extraData.dateOfBirth)) {
+      throw new Error("You must be at least 18 years old to create an account.");
+    }
+
     const res = await createUserWithEmailAndPassword(auth, email, password);
     const user = res.user;
 

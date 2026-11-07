@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { saveHostProfile } from '../../utils/hostData'
 import { useNotification } from '../../context/NotificationContext'
+import {
+    getMaxDateForAge,
+    isAdultDateOfBirth,
+    isValidPhoneNumber,
+    validateProfileDetails,
+} from '../../utils/profileValidation'
 
 const emptyProfile = {
     firstName: '',
@@ -16,6 +22,10 @@ export function HostMyProfile() {
     const [profile, setProfile] = useState(emptyProfile)
     const [draft, setDraft] = useState(emptyProfile)
     const [isEditing, setIsEditing] = useState(false)
+    const [validationError, setValidationError] = useState('')
+    const [maxDateOfBirth] = useState(() => getMaxDateForAge())
+    const invalidDateOfBirth = Boolean(validationError && !isAdultDateOfBirth(draft.dateOfBirth))
+    const invalidPhoneNumber = Boolean(validationError && !isValidPhoneNumber(draft.phoneNumber))
 
     useEffect(() => {
         const nextProfile = {
@@ -30,10 +40,19 @@ export function HostMyProfile() {
 
     const handleChange = (event) => {
         const { name, value } = event.target
-        setDraft((current) => ({ ...current, [name]: value }))
+        const nextValue = name === 'phoneNumber' ? value.replace(/\D/g, '').slice(0, 15) : value
+        setDraft((current) => ({ ...current, [name]: nextValue }))
+        setValidationError('')
     }
 
     const handleSave = async () => {
+        const error = validateProfileDetails(draft)
+        if (error) {
+            setValidationError(error)
+            showNotification(error, 'danger')
+            return
+        }
+
         try {
             await saveHostProfile(currentUser?.uid, draft)
             setProfile(draft)
@@ -75,9 +94,26 @@ export function HostMyProfile() {
                             onChange={handleChange}
                             readOnly={!isEditing}
                             autoComplete={field.autoComplete}
+                            max={field.name === 'dateOfBirth' ? maxDateOfBirth : undefined}
+                            required={isEditing && ['dateOfBirth', 'phoneNumber'].includes(field.name)}
+                            pattern={field.name === 'phoneNumber' ? String.raw`\d{7,15}` : undefined}
+                            maxLength={field.name === 'phoneNumber' ? 15 : undefined}
+                            title={field.name === 'phoneNumber' ? 'Enter a phone number using 7 to 15 digits only.' : undefined}
+                            inputMode={field.name === 'phoneNumber' ? 'numeric' : undefined}
+                            aria-invalid={field.name === 'dateOfBirth'
+                                ? invalidDateOfBirth
+                                : field.name === 'phoneNumber'
+                                    ? invalidPhoneNumber
+                                    : undefined}
                         />
                     </div>
                 ))}
+
+                {validationError && (
+                    <div className="col-12">
+                        <p className="text-danger mb-0" role="alert">{validationError}</p>
+                    </div>
+                )}
 
                 <div className="col-12 col-md-6 offset-md-6 d-flex justify-content-end gap-2">
                     {isEditing ? (
@@ -88,6 +124,7 @@ export function HostMyProfile() {
                                 onClick={() => {
                                     setDraft(profile)
                                     setIsEditing(false)
+                                    setValidationError('')
                                 }}
                             >
                                 Cancel
@@ -107,6 +144,7 @@ export function HostMyProfile() {
                             onClick={() => {
                                 setDraft(profile)
                                 setIsEditing(true)
+                                setValidationError('')
                             }}
                         >
                             Edit

@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { getDashboardPath } from '../../utils/roles'
+import { getMaxDateForAge, isAdultDateOfBirth } from '../../utils/profileValidation'
 
 export const SignUpN = ({ email: initialEmail = '', onBack, onClose, onAuthenticated }) => {
     const [showPassword, setShowPassword] = useState(false)
@@ -9,6 +10,7 @@ export const SignUpN = ({ email: initialEmail = '', onBack, onClose, onAuthentic
     const [role, setRole] = useState('customer')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
+    const [maxDateOfBirth] = useState(() => getMaxDateForAge())
 
     const { signup } = useAuth()
     const navigate = useNavigate()
@@ -18,6 +20,10 @@ export const SignUpN = ({ email: initialEmail = '', onBack, onClose, onAuthentic
         setError('')
 
         const data = Object.fromEntries(new FormData(event.currentTarget))
+        if (!isAdultDateOfBirth(data.dateOfBirth)) {
+            setError('You must be at least 18 years old to create an account.')
+            return
+        }
 
         try {
             setLoading(true)
@@ -81,7 +87,7 @@ export const SignUpN = ({ email: initialEmail = '', onBack, onClose, onAuthentic
 
                 <div>
                     <label className="form-label fw-bold" htmlFor="signup-birth-date">Date of birth</label>
-                    <input id="signup-birth-date" className="form-control form-control-lg signup-inputN fs-6" type="date" name="dateOfBirth" autoComplete="bday" required />
+                    <input id="signup-birth-date" className="form-control form-control-lg signup-inputN fs-6" type="date" name="dateOfBirth" autoComplete="bday" max={maxDateOfBirth} required />
                 </div>
 
                 <div>
@@ -109,7 +115,6 @@ export const SignUpN = ({ email: initialEmail = '', onBack, onClose, onAuthentic
         </section>
     )
 }
-
 
 
 
