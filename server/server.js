@@ -192,12 +192,36 @@ app.get('/booked-dates', async (req, res) => {
 
     try {
         const db = getFirestore()
-        const snapshot = await db.collection('bookings').get()
+        const bookings = db.collection('bookings')
+        const matchingDocuments = new Map()
+        const readField = async (field, value) => {
+            if (!value) return
+            const snapshot = await bookings.where(field, '==', value).get()
+            snapshot.docs.forEach((bookingDoc) => matchingDocuments.set(bookingDoc.id, bookingDoc))
+        }
+
+        if (propertyId) {
+            await readField('propertyId', propertyId)
+            if (matchingDocuments.size === 0) {
+                for (const field of ['propertyUid', 'placeId', 'listingId', 'resortId', 'property.id']) {
+                    await readField(field, propertyId)
+                }
+            }
+        }
+        if (propertyName) {
+            await readField('propertyName', propertyName)
+            if (matchingDocuments.size === 0) {
+                for (const field of ['resortName', 'resort', 'property.name']) {
+                    await readField(field, propertyName)
+                }
+            }
+        }
+
         const requestedName = propertyName.toLowerCase()
         const inactiveStatuses = new Set(['rejected', 'cancelled', 'canceled', 'failed', 'expired'])
         const bookedDates = new Set()
 
-        snapshot.docs.forEach((bookingDoc) => {
+        matchingDocuments.forEach((bookingDoc) => {
             const booking = bookingDoc.data()
             const bookingPropertyIds = [
                 booking.propertyId,
