@@ -22,8 +22,14 @@ const formatDate = (value) => {
 
 const formatTimeAgo = (value) => {
     const date = parseDateValue(value)
-    const days = Math.floor((Date.now() - date.getTime()) / 86400000)
-    if (Number.isNaN(days) || days < 1) return 'Today'
+    const minutes = Math.floor((Date.now() - date.getTime()) / 60000)
+    if (minutes < 1) return 'Just now'
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`
+
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+
+    const days = Math.floor(hours / 24)
     return `${days} day${days === 1 ? '' : 's'} ago`
 }
 

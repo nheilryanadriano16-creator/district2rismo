@@ -67,7 +67,7 @@ export function AdminHostRevoke({ show, host, onHide, onConfirm }) {
             onHide={onHide}
             centered
             dialogClassName="admin-host-revoke-dialogN"
-            contentClassName="admin-host-revoke-modalN"
+            contentClassName="admin-host-revoke-modalN admin-themed-modalN"
             aria-labelledby="admin-host-revoke-title"
         >
             <button
@@ -98,7 +98,7 @@ export function AdminHostRevoke({ show, host, onHide, onConfirm }) {
                     </label>
                     <select
                         id="host-revoke-reason"
-                        className="form-select admin-host-revoke-selectN bg-dark text-white border-secondary mb-4"
+                        className="form-select admin-host-revoke-selectN mb-4"
                         value={reason}
                         onChange={(event) => setReason(event.target.value)}
                         required

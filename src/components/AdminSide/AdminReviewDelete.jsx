@@ -46,7 +46,7 @@ export function AdminReviewDelete({ show, review, onHide, onConfirm }) {
             onHide={closeModal}
             centered
             dialogClassName="admin-suspend-dialogN"
-            contentClassName="admin-suspend-modalN"
+            contentClassName="admin-suspend-modalN admin-themed-modalN"
             aria-labelledby="admin-review-delete-title"
         >
             <button type="button" className="admin-suspend-closeN" aria-label="Close" onClick={closeModal} disabled={submitting}>

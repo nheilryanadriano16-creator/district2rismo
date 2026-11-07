@@ -99,7 +99,7 @@ export function AdminUserSuspend({ show, user, onHide, onConfirm }) {
             onHide={onHide}
             centered
             dialogClassName="admin-suspend-dialogN"
-            contentClassName="admin-suspend-modalN"
+            contentClassName="admin-suspend-modalN admin-themed-modalN"
             aria-labelledby="admin-suspend-title"
         >
             <button
@@ -132,7 +132,7 @@ export function AdminUserSuspend({ show, user, onHide, onConfirm }) {
                             </label>
                             <select
                                 id="admin-suspend-reason-select"
-                                className="form-select admin-suspend-selectN bg-dark text-white border-secondary mb-4"
+                                className="form-select admin-suspend-selectN mb-4"
                                 value={selectedReason}
                                 onChange={(event) => setSelectedReason(event.target.value)}
                                 required
@@ -149,7 +149,7 @@ export function AdminUserSuspend({ show, user, onHide, onConfirm }) {
                             <input
                                 id="admin-suspend-reason"
                                 type="text"
-                                className="form-control admin-suspend-inputN bg-dark text-white border-secondary mb-4"
+                                className="form-control admin-suspend-inputN mb-4"
                                 placeholder="Type Reason"
                                 value={reason}
                                 onChange={(event) => setReason(event.target.value)}

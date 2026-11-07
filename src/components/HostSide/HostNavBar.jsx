@@ -109,7 +109,7 @@ export const HostNavBar = ({ activeSection, onSelect, preview = false, onLogout 
                         activeSection={
                             activeSection === 'Add Property' || activeSection === 'View Property' || activeSection === 'Edit Property'
                                 ? 'Properties'
-                                : activeSection === 'Confirm Booking'
+                                : activeSection === 'Confirm Booking' || activeSection === 'Booking Details'
                                     ? 'Bookings'
                                     : activeSection
                         }

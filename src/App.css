@@ -2815,21 +2815,27 @@ textarea:-webkit-autofill:focus {
 
 .admin-host-revoke-selectN {
     min-height: 3rem;
-    border: 1px solid #E4DFD8;
-    background-color: transparent;
+    border: 1px solid #FFB200;
+    background-color: #24221B;
     color: #E4DFD8;
 }
 
 .admin-host-revoke-selectN:focus {
     border-color: #FFB200;
-    background-color: transparent;
+    background-color: #24221B;
     color: #E4DFD8;
-    box-shadow: 0 0 0 0.2rem rgba(255, 178, 0, 0.2);
+    box-shadow: 0 0 0 0.2rem rgb(255 178 0 / 25%);
 }
 
 .admin-host-revoke-selectN option {
     background-color: #38362D;
     color: #E4DFD8;
+}
+
+.admin-host-revoke-selectN:disabled {
+    background-color: #24221B;
+    color: #BDBBB5;
+    opacity: 0.7;
 }
 
 .admin-host-revoke-notifyN .form-check-input {
@@ -2893,8 +2899,8 @@ textarea:-webkit-autofill:focus {
 
 .admin-host-deactivate-inputN {
     min-height: 3rem;
-    border: 1px solid #E4DFD8;
-    background-color: transparent;
+    border: 1px solid #FFB200;
+    background-color: #24221B;
     color: #E4DFD8;
 }
 
@@ -2904,9 +2910,15 @@ textarea:-webkit-autofill:focus {
 
 .admin-host-deactivate-inputN:focus {
     border-color: #FFB200;
-    background-color: transparent;
+    background-color: #24221B;
     color: #E4DFD8;
-    box-shadow: 0 0 0 0.2rem rgba(255, 178, 0, 0.2);
+    box-shadow: 0 0 0 0.2rem rgb(255 178 0 / 25%);
+}
+
+.admin-host-deactivate-inputN:disabled {
+    background-color: #24221B;
+    color: #BDBBB5;
+    opacity: 0.7;
 }
 
 .admin-host-deactivate-cancelN,
@@ -3413,6 +3425,28 @@ textarea:-webkit-autofill:focus {
 
 .admin-suspend-bodyN {
     padding: 1.5rem 1.85rem 2.25rem;
+}
+
+.host-review-report-controlN {
+    border: 1px solid #FFB200;
+    background-color: #24221B;
+    color: #E4DFD8;
+}
+
+.host-review-report-controlN:focus {
+    border-color: #FFB200;
+    background-color: #24221B;
+    color: #E4DFD8;
+    box-shadow: 0 0 0 .25rem rgb(255 178 0 / 25%);
+}
+
+.host-review-report-controlN::placeholder {
+    color: #BDBBB5;
+}
+
+.host-review-report-controlN option {
+    background-color: #38362D;
+    color: #E4DFD8;
 }
 
 .admin-suspend-closeN {
@@ -4251,4 +4285,150 @@ textarea:-webkit-autofill:focus {
 .admin-property-statusN.active {
     background-color: #FFB200;
     color: #24221B;
+}
+
+.admin-themed-modalN {
+    border: 1px solid #38362D;
+    border-radius: 1rem;
+    background-color: #38362D;
+    color: #E4DFD8;
+}
+
+.admin-themed-modalN .modal-body {
+    padding: 1.5rem 1.85rem 2.25rem;
+    color: #E4DFD8;
+}
+
+.admin-themed-modalN h2 {
+    margin: 0 1.5rem 1.5rem;
+    color: #FFB200 !important;
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.admin-themed-modalN p {
+    color: #E4DFD8;
+    font-size: 1.15rem;
+    line-height: 1.15;
+    text-align: center;
+}
+
+.admin-themed-modalN .form-label,
+.admin-themed-modalN .form-check-label,
+.admin-themed-modalN legend {
+    color: #E4DFD8;
+}
+
+.admin-themed-modalN .form-control,
+.admin-themed-modalN .form-select,
+.admin-themed-modalN textarea {
+    min-height: 3rem;
+    border: 1px solid #E4DFD8;
+    border-radius: .5rem;
+    background-color: #38362D;
+    color: #E4DFD8;
+}
+
+.admin-themed-modalN .form-control:focus,
+.admin-themed-modalN .form-select:focus,
+.admin-themed-modalN textarea:focus {
+    border-color: #FFB200;
+    background-color: #38362D;
+    color: #E4DFD8;
+    box-shadow: 0 0 0 .2rem rgb(255 178 0 / 20%);
+}
+
+.admin-themed-modalN .form-control::placeholder,
+.admin-themed-modalN textarea::placeholder {
+    color: #BDBBB5;
+}
+
+.admin-themed-modalN .form-select option {
+    background-color: #38362D;
+    color: #E4DFD8;
+}
+
+.admin-themed-modalN .form-check-input {
+    border-color: #FFB200;
+    background-color: transparent;
+}
+
+.admin-themed-modalN .form-check-input:checked {
+    border-color: #FFB200;
+    background-color: #FFB200;
+}
+
+.admin-themed-modalN > button[aria-label="Close"] {
+    position: absolute;
+    top: .75rem;
+    right: .85rem;
+    z-index: 1;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #C8C5BD;
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.admin-themed-modalN .btn {
+    min-height: 2.9rem;
+    border-radius: 50rem;
+    font-weight: 600;
+}
+
+.admin-themed-modalN .btn-outline-warning {
+    border-color: #FFB200;
+    color: #FFB200;
+}
+
+.admin-themed-modalN .btn-outline-warning:hover:not(:disabled),
+.admin-themed-modalN .btn-outline-warning:focus-visible {
+    border-color: #FFB200;
+    background-color: rgb(255 178 0 / 10%);
+    color: #FFB200;
+}
+
+.admin-themed-modalN .btn-warning,
+.admin-themed-modalN .btn-success {
+    border-color: #FFB200;
+    background-color: #FFB200;
+    color: #24221B;
+}
+
+.admin-themed-modalN .btn-success.text-white {
+    color: #24221B !important;
+}
+
+.admin-themed-modalN .btn-warning:hover:not(:disabled),
+.admin-themed-modalN .btn-warning:focus-visible,
+.admin-themed-modalN .btn-success:hover:not(:disabled),
+.admin-themed-modalN .btn-success:focus-visible {
+    border-color: #E9A300;
+    background-color: #E9A300;
+    color: #24221B;
+}
+
+.admin-themed-modalN .btn-success.text-white:hover:not(:disabled),
+.admin-themed-modalN .btn-success.text-white:focus-visible {
+    color: #24221B !important;
+}
+
+@media (max-width: 575.98px) {
+    .admin-themed-modalN .modal-body {
+        padding: 1.5rem 1.25rem;
+    }
+
+    .admin-themed-modalN h2 {
+        margin-bottom: 1.5rem;
+    }
+
+    .admin-themed-modalN .modal-body .d-flex.justify-content-center {
+        flex-direction: column;
+    }
+
+    .admin-themed-modalN .modal-body .d-flex.justify-content-center > .btn {
+        width: 100%;
+    }
 }

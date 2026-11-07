@@ -435,11 +435,16 @@ export async function fetchHostReviews(uid, properties = []) {
     .map(mapReview)
 }
 
-export async function reportHostReview(reviewId, uid) {
+export async function reportHostReview(reviewId, uid, report) {
   if (!reviewId) throw new Error('A review is required to report it.')
+  if (!report?.reason || !report?.details?.trim()) {
+    throw new Error('A report reason and details are required.')
+  }
   await updateDoc(doc(db, 'reviews', reviewId), {
     status: 'Reported',
     reportedBy: uid || '',
+    reportReason: report.reason,
+    reportDetails: report.details.trim(),
     reportedAt: serverTimestamp(),
   })
 }

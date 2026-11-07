@@ -78,7 +78,7 @@ export function AdminHostDeactivate({ show, host, onHide, onConfirm }) {
             onHide={onHide}
             centered
             dialogClassName="admin-host-deactivate-dialogN"
-            contentClassName="admin-host-deactivate-modalN"
+            contentClassName="admin-host-deactivate-modalN admin-themed-modalN"
             aria-labelledby="admin-host-deactivate-title"
         >
             <button
@@ -118,7 +118,7 @@ export function AdminHostDeactivate({ show, host, onHide, onConfirm }) {
                             <input
                                 id="admin-host-deactivate-reason"
                                 type="text"
-                                className="form-control admin-host-deactivate-inputN bg-dark text-white border-secondary"
+                                className="form-control admin-host-deactivate-inputN"
                                 placeholder="Type Reason"
                                 value={reason}
                                 onChange={(event) => setReason(event.target.value)}

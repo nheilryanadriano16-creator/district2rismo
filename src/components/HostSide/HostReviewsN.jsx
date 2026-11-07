@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
+import Modal from 'react-bootstrap/Modal'
 import { useAuth } from '../../context/AuthContext'
 import { fetchHostProperties, fetchHostReviews, reportHostReview, summarizeReviews } from '../../utils/hostData'
 import { useNotification } from '../../context/NotificationContext'
+
+const reportReasons = [
+    'Inappropriate or offensive content',
+    'Spam or advertising',
+    'False or misleading information',
+    'Other',
+]
 
 const Stars = ({ rating, label }) => (
     <span className="d-inline-flex align-items-center gap-1" aria-label={label}>
@@ -15,6 +23,10 @@ export const HostReviewsN = ({ onReportReview }) => {
     const { currentUser } = useAuth()
     const { showNotification } = useNotification()
     const [reviews, setReviews] = useState([])
+    const [reviewToReport, setReviewToReport] = useState(null)
+    const [reportReason, setReportReason] = useState('')
+    const [reportDetails, setReportDetails] = useState('')
+    const [submittingReport, setSubmittingReport] = useState(false)
     const [summary, setSummary] = useState({
         total: 0,
         average: 0,
@@ -41,15 +53,37 @@ export const HostReviewsN = ({ onReportReview }) => {
         loadReviews().catch((error) => console.error('Error loading host reviews:', error))
     }, [currentUser])
 
-    const handleReport = async (review) => {
-        onReportReview?.(review)
+    const closeReportModal = () => {
+        if (submittingReport) return
+        setReviewToReport(null)
+        setReportReason('')
+        setReportDetails('')
+    }
+
+    const handleReport = async (event) => {
+        event.preventDefault()
+        if (!reviewToReport || !reportReason || !reportDetails.trim()) return
+
         try {
-            await reportHostReview(review.id, currentUser?.uid)
+            setSubmittingReport(true)
+            await reportHostReview(reviewToReport.id, currentUser?.uid, {
+                reason: reportReason,
+                details: reportDetails.trim(),
+            })
+            const reportedReview = { ...reviewToReport, status: 'Reported' }
+            setReviews((currentReviews) => currentReviews.map((review) => (
+                review.id === reportedReview.id ? reportedReview : review
+            )))
+            onReportReview?.(reportedReview)
             showNotification('Review reported to admin.', 'success')
-            await loadReviews()
+            setReviewToReport(null)
+            setReportReason('')
+            setReportDetails('')
         } catch (error) {
             console.error('Error reporting review:', error)
             showNotification('Could not report this review.', 'danger')
+        } finally {
+            setSubmittingReport(false)
         }
     }
 
@@ -104,8 +138,15 @@ export const HostReviewsN = ({ onReportReview }) => {
                                 <h3 className="h6 mb-0 text-nowrap">{review.guest}</h3>
                                 <Stars rating={review.rating} label={`${review.rating} out of 5 stars`} />
                                 <small className="text-secondary text-nowrap">{review.date}</small>
-                                <button type="button" className="btn btn-warning btn-sm rounded-pill ms-auto px-3" onClick={() => handleReport(review)}>
-                                    Report <i className="bi bi-flag-fill ms-1" aria-hidden="true" />
+                                <button
+                                    type="button"
+                                    className="btn btn-warning btn-sm rounded-pill ms-auto px-3"
+                                    onClick={() => setReviewToReport(review)}
+                                    disabled={String(review.status || '').toLowerCase() === 'reported'}
+                                >
+                                    {String(review.status || '').toLowerCase() === 'reported'
+                                        ? 'Reported'
+                                        : <>Report <i className="bi bi-flag-fill ms-1" aria-hidden="true" /></>}
                                 </button>
                             </div>
                             <p className="small mb-0 host-review-commentN">{review.comment}</p>
@@ -117,6 +158,66 @@ export const HostReviewsN = ({ onReportReview }) => {
                 )}
             </div>
         </div>
+        <Modal
+            show={Boolean(reviewToReport)}
+            onHide={closeReportModal}
+            centered
+            dialogClassName="admin-suspend-dialogN"
+            contentClassName="admin-suspend-modalN host-review-report-modalN admin-themed-modalN"
+            aria-labelledby="host-review-report-title"
+        >
+            <button type="button" className="admin-suspend-closeN" aria-label="Close" onClick={closeReportModal} disabled={submittingReport}>
+                <i className="bi bi-x-lg" aria-hidden="true" />
+            </button>
+            <form onSubmit={handleReport}>
+                <Modal.Body className="admin-suspend-bodyN text-white">
+                    <h2 id="host-review-report-title" className="admin-suspend-titleN text-center fw-bold text-white mb-3">
+                        Report Review
+                    </h2>
+                    <p className="text-center text-white mb-4">
+                        Tell us why you are reporting {reviewToReport?.guest || 'this guest'}&apos;s review.
+                    </p>
+                    <label className="form-label text-white" htmlFor="host-review-report-reason">
+                        Reason for Report
+                    </label>
+                    <select
+                        id="host-review-report-reason"
+                        className="form-select host-review-report-controlN mb-3"
+                        value={reportReason}
+                        onChange={(event) => setReportReason(event.target.value)}
+                        required
+                        disabled={submittingReport}
+                    >
+                        <option value="" disabled>Select a reason</option>
+                        {reportReasons.map((reason) => (
+                            <option key={reason} value={reason}>{reason}</option>
+                        ))}
+                    </select>
+                    <label className="form-label text-white" htmlFor="host-review-report-details">
+                        Additional Details
+                    </label>
+                    <textarea
+                        id="host-review-report-details"
+                        className="form-control host-review-report-controlN mb-4"
+                        rows={4}
+                        value={reportDetails}
+                        onChange={(event) => setReportDetails(event.target.value)}
+                        placeholder="Provide details to help us review your report."
+                        maxLength={1000}
+                        required
+                        disabled={submittingReport}
+                    />
+                    <div className="d-flex flex-column flex-sm-row justify-content-center gap-2">
+                        <button type="button" className="btn admin-suspend-cancelN" onClick={closeReportModal} disabled={submittingReport}>
+                            Cancel
+                        </button>
+                        <button type="submit" className="btn admin-suspend-confirmN" disabled={submittingReport}>
+                            {submittingReport ? 'Submitting...' : 'Submit Report'}
+                        </button>
+                    </div>
+                </Modal.Body>
+            </form>
+        </Modal>
     </section>
     )
 }

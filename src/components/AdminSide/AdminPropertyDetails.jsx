@@ -161,22 +161,22 @@ export function AdminPropertyDetails({
 
     return (
         <section className="admin-property-detailsN container-fluid p-3 p-md-4">
-            <div className="d-flex align-items-center gap-2 fs-5 mb-3">
+            <nav aria-label="Breadcrumb" className="small mb-3">
                 <button
                     type="button"
-                    className="admin-property-backN btn btn-link p-0 text-decoration-none text-white fs-5 fw-normal"
+                    className="admin-property-backN btn btn-link p-0 text-decoration-none text-white"
                     onClick={onBack}
                     disabled={submitting}
                 >
                     Properties
                 </button>
-                <span className="text-white opacity-75 fs-6">&gt;</span>
-                <span className="fs-5 fw-normal text-warning" style={{ color: '#FFB200' }}>
+                <span className="mx-1 text-white opacity-75">›</span>
+                <span className="text-warning">
                     Property Details
                 </span>
-            </div>
+            </nav>
 
-            <header className="card admin-property-detail-headerN border-0 p-3 p-md-4 mb-3 bg-dark text-white">
+            <header className="card admin-property-detail-headerN border-0 p-3 p-md-4 mb-3 text-white">
                 <div className="row align-items-center g-3">
                     <div className="col-auto">
                         <img
@@ -229,7 +229,7 @@ export function AdminPropertyDetails({
                 }}
                 centered
                 dialogClassName="admin-suspend-dialogN"
-                contentClassName="admin-suspend-modalN"
+                contentClassName="admin-suspend-modalN admin-themed-modalN"
                 aria-labelledby="admin-property-action-title"
             >
                 <button

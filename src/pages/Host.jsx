@@ -74,7 +74,7 @@ export function HostN({ initialSection = 'Dashboard', preview = false }) {
                     {!isFullWidth && (
                         <div className="d-none d-lg-block col-lg-3">
                             <HostSideBarN
-                                activeSection={selectedSection}
+                                activeSection={selectedSection === 'Booking Details' ? 'Bookings' : selectedSection}
                                 onSelect={setSelectedSection}
                                 onLogout={async () => {
                                     await logout()

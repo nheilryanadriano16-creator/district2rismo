@@ -82,7 +82,7 @@ export function AdminUserDeactivate({ show, user, onHide, onConfirm }) {
             onHide={onHide}
             centered
             dialogClassName="admin-deactivate-dialogN"
-            contentClassName="admin-deactivate-modalN"
+            contentClassName="admin-deactivate-modalN admin-themed-modalN"
             aria-labelledby="admin-deactivate-title"
         >
             <button
@@ -116,7 +116,7 @@ export function AdminUserDeactivate({ show, user, onHide, onConfirm }) {
                             <input
                                 id="admin-deactivate-reason"
                                 type="text"
-                                className="form-control admin-deactivate-inputN bg-dark text-white border-secondary"
+                                className="form-control admin-deactivate-inputN"
                                 placeholder="Type Reason"
                                 value={reason}
                                 onChange={(event) => setReason(event.target.value)}
