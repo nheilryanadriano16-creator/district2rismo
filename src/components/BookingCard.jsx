@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { collection, getDocs } from 'firebase/firestore'
+import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 
 const peso = (n) =>
@@ -27,31 +27,25 @@ const toDateKey = (value) => {
 }
 
 const getBookedDates = async (property) => {
-    const snapshot = await getDocs(collection(db, 'bookings'))
-    const propertyName = String(property?.name || '').trim().toLowerCase()
+    const bookings = collection(db, 'bookings')
+    const propertyName = String(property?.name || '').trim()
+    const queries = []
+    if (property?.id) queries.push(query(bookings, where('propertyId', '==', property.id)))
+    if (propertyName) queries.push(query(bookings, where('propertyName', '==', propertyName)))
+
+    if (!queries.length) throw new Error('Property details are unavailable.')
+
+    const snapshots = await Promise.all(queries.map((bookingQuery) => getDocs(bookingQuery)))
+    const bookingsById = new Map()
+    snapshots.forEach((snapshot) => {
+        snapshot.docs.forEach((bookingDoc) => bookingsById.set(bookingDoc.id, bookingDoc.data()))
+    })
+
     const inactiveStatuses = new Set(['rejected', 'cancelled', 'canceled', 'failed', 'expired'])
     const bookedDates = new Set()
-
-    snapshot.forEach((bookingDoc) => {
-        const booking = bookingDoc.data()
-        const bookingPropertyIds = [
-            booking.propertyId,
-            booking.propertyUid,
-            booking.placeId,
-            booking.listingId,
-            booking.resortId,
-            booking.property?.id,
-        ].filter(Boolean)
-        const bookingPropertyNames = [
-            booking.propertyName,
-            booking.resortName,
-            typeof booking.resort === 'string' ? booking.resort : '',
-            booking.property?.name,
-        ].map((name) => String(name || '').trim().toLowerCase()).filter(Boolean)
-        const matchesProperty = (property?.id && bookingPropertyIds.includes(property.id))
-            || (propertyName && bookingPropertyNames.includes(propertyName))
+    bookingsById.forEach((booking) => {
         const status = String(booking.status || 'Pending').toLowerCase()
-        if (!matchesProperty || inactiveStatuses.has(status)) return
+        if (inactiveStatuses.has(status)) return
 
         const date = toDateKey(booking.date || booking.startDate)
         if (date) bookedDates.add(date)
