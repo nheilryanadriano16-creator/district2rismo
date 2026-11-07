@@ -180,6 +180,62 @@ app.put('/api/properties/:id', async (req, res) => {
     }
 })
 
+app.get('/booked-dates', async (req, res) => {
+    const propertyId = typeof req.query.propertyId === 'string' ? req.query.propertyId.trim() : ''
+    const propertyName = typeof req.query.propertyName === 'string' ? req.query.propertyName.trim() : ''
+    if (!propertyId && !propertyName) {
+        return res.status(400).json({ error: 'A property ID or name is required.' })
+    }
+    if (!getApps().length) {
+        return res.status(503).json({ error: 'Date availability is not configured on the API.' })
+    }
+
+    try {
+        const db = getFirestore()
+        const bookings = db.collection('bookings')
+        const queries = []
+        if (propertyId) {
+            for (const field of ['propertyId', 'propertyUid', 'placeId', 'listingId', 'resortId', 'property.id']) {
+                queries.push(bookings.where(field, '==', propertyId).get())
+            }
+        }
+        if (propertyName) {
+            for (const field of ['propertyName', 'resortName', 'resort', 'property.name']) {
+                queries.push(bookings.where(field, '==', propertyName).get())
+            }
+        }
+
+        const snapshots = await Promise.all(queries)
+        const inactiveStatuses = new Set(['rejected', 'cancelled', 'canceled', 'failed', 'expired'])
+        const bookedDates = new Set()
+        const seenBookingIds = new Set()
+
+        snapshots.forEach((snapshot) => {
+            snapshot.docs.forEach((bookingDoc) => {
+                if (seenBookingIds.has(bookingDoc.id)) return
+                seenBookingIds.add(bookingDoc.id)
+                const booking = bookingDoc.data()
+                const status = String(booking.status || 'Pending').toLowerCase()
+                if (inactiveStatuses.has(status)) return
+                const rawDate = booking.date || booking.startDate
+                const date = typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(rawDate)
+                    ? rawDate.slice(0, 10)
+                    : typeof rawDate?.toDate === 'function'
+                        ? rawDate.toDate().toISOString().slice(0, 10)
+                        : rawDate instanceof Date
+                            ? rawDate.toISOString().slice(0, 10)
+                            : ''
+                if (date) bookedDates.add(date)
+            })
+        })
+
+        return res.json({ bookedDates: [...bookedDates] })
+    } catch (error) {
+        console.error('Could not load booked dates:', error.message)
+        return res.status(500).json({ error: 'Could not load date availability.' })
+    }
+})
+
 app.post('/create-checkout-session', async (req, res) => {
     try {
         const { booking, payOption } = req.body || {}
