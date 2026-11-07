@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import Modal from 'react-bootstrap/Modal'
 import { formatHostDate } from '../../utils/hostData'
 import { db } from '../../firebase'
 import { doc, updateDoc, collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore'
@@ -10,6 +12,8 @@ export const HostBookingDetailsN = ({
     onReject,
 }) => {
     const { setNotification } = useNotification()
+    const [pendingAction, setPendingAction] = useState(null)
+    const [submitting, setSubmitting] = useState(false)
 
     const guest = booking?.userEmail || booking?.guest || 'Guest'
     const resort = booking?.propertyName || booking?.resort || 'Property'
@@ -62,46 +66,49 @@ export const HostBookingDetailsN = ({
     ))
 
     const handleConfirmBooking = async () => {
+        if (!booking?.id) {
+            setNotification({ type: 'error', message: 'Booking details are missing.' })
+            return false
+        }
+
         try {
-            if (booking?.id) {
-                const bookingRef = doc(db, 'bookings', booking.id)
-                await updateDoc(bookingRef, { status: 'Confirmed' })
+            const bookingRef = doc(db, 'bookings', booking.id)
+            await updateDoc(bookingRef, { status: 'Confirmed' })
 
-                await addDoc(collection(db, 'notifications'), {
-                    userId: booking?.userId || null,
-                    userEmail: booking?.userEmail || null,
-                    title: 'Booking Confirmed!',
-                    message: `Your booking at ${resort} for ${startDate} (${sessionType}) has been confirmed by the host.`,
-                    bookingId: booking.id,
-                    read: false,
-                    createdAt: serverTimestamp(),
-                })
+            await addDoc(collection(db, 'notifications'), {
+                userId: booking?.userId || null,
+                userEmail: booking?.userEmail || null,
+                title: 'Booking Confirmed!',
+                message: `Your booking at ${resort} for ${startDate} (${sessionType}) has been confirmed by the host.`,
+                bookingId: booking.id,
+                read: false,
+                createdAt: serverTimestamp(),
+            })
 
-                const propertyId = booking.propertyId || booking.property?.id
-                const conflictingQuery = query(
-                    collection(db, 'bookings'),
-                    where(propertyId ? 'propertyId' : 'propertyName', '==', propertyId || resort),
-                    where('date', '==', booking.date || booking.startDate),
-                    where('session', '==', sessionType),
-                    where('status', '==', 'Pending')
-                )
+            const propertyId = booking.propertyId || booking.property?.id
+            const conflictingQuery = query(
+                collection(db, 'bookings'),
+                where(propertyId ? 'propertyId' : 'propertyName', '==', propertyId || resort),
+                where('date', '==', booking.date || booking.startDate),
+                where('session', '==', sessionType),
+                where('status', '==', 'Pending')
+            )
 
-                const conflictingSnapshot = await getDocs(conflictingQuery)
-                for (const conflictDoc of conflictingSnapshot.docs) {
-                    if (conflictDoc.id !== booking.id) {
-                        const conflictData = conflictDoc.data()
-                        await updateDoc(doc(db, 'bookings', conflictDoc.id), { status: 'Rejected' })
+            const conflictingSnapshot = await getDocs(conflictingQuery)
+            for (const conflictDoc of conflictingSnapshot.docs) {
+                if (conflictDoc.id !== booking.id) {
+                    const conflictData = conflictDoc.data()
+                    await updateDoc(doc(db, 'bookings', conflictDoc.id), { status: 'Rejected' })
 
-                        await addDoc(collection(db, 'notifications'), {
-                            userId: conflictData.userId || null,
-                            userEmail: conflictData.userEmail || null,
-                            title: 'Booking Unavailable',
-                            message: `Your booking request at ${resort} for ${startDate} (${sessionType}) was automatically declined because the slot was assigned to another reservation.`,
-                            bookingId: conflictDoc.id,
-                            read: false,
-                            createdAt: serverTimestamp(),
-                        })
-                    }
+                    await addDoc(collection(db, 'notifications'), {
+                        userId: conflictData.userId || null,
+                        userEmail: conflictData.userEmail || null,
+                        title: 'Booking Unavailable',
+                        message: `Your booking request at ${resort} for ${startDate} (${sessionType}) was automatically declined because the slot was assigned to another reservation.`,
+                        bookingId: conflictDoc.id,
+                        read: false,
+                        createdAt: serverTimestamp(),
+                    })
                 }
             }
 
@@ -110,76 +117,125 @@ export const HostBookingDetailsN = ({
                 message: 'Booking confirmed and user notified! Conflicting pending slots were automatically updated.',
             })
             onConfirm?.()
+            return true
         } catch (error) {
             console.error('Error confirming booking:', error)
             setNotification({
                 type: 'error',
                 message: 'Failed to confirm booking and send notification.',
             })
+            return false
         }
     }
 
     const handleRejectBooking = async () => {
-        try {
-            if (booking?.id) {
-                const bookingRef = doc(db, 'bookings', booking.id)
-                await updateDoc(bookingRef, { status: 'Rejected' })
+        if (!booking?.id) {
+            setNotification({ type: 'error', message: 'Booking details are missing.' })
+            return false
+        }
 
-                await addDoc(collection(db, 'notifications'), {
-                    userId: booking?.userId || null,
-                    userEmail: booking?.userEmail || null,
-                    title: 'Booking Declined',
-                    message: `Your booking request at ${resort} for ${startDate} (${sessionType}) was rejected by the host.`,
-                    bookingId: booking.id,
-                    read: false,
-                    createdAt: serverTimestamp(),
-                })
-            }
+        try {
+            const bookingRef = doc(db, 'bookings', booking.id)
+            await updateDoc(bookingRef, { status: 'Rejected' })
+
+            await addDoc(collection(db, 'notifications'), {
+                userId: booking?.userId || null,
+                userEmail: booking?.userEmail || null,
+                title: 'Booking Declined',
+                message: `Your booking request at ${resort} for ${startDate} (${sessionType}) was rejected by the host.`,
+                bookingId: booking.id,
+                read: false,
+                createdAt: serverTimestamp(),
+            })
 
             setNotification({
                 type: 'success',
                 message: 'Booking rejected and notification sent to the guest.',
             })
             onReject?.()
+            return true
         } catch (error) {
             console.error('Error rejecting booking:', error)
             setNotification({
                 type: 'error',
                 message: 'Failed to reject booking and send notification.',
             })
+            return false
         }
     }
 
     const handleCancelBooking = async () => {
-        try {
-            if (booking?.id) {
-                const bookingRef = doc(db, 'bookings', booking.id)
-                await updateDoc(bookingRef, { status: 'Cancelled' })
+        if (!booking?.id) {
+            setNotification({ type: 'error', message: 'Booking details are missing.' })
+            return false
+        }
 
-                await addDoc(collection(db, 'notifications'), {
-                    userId: booking?.userId || null,
-                    userEmail: booking?.userEmail || null,
-                    title: 'Booking Cancelled',
-                    message: `Your confirmed booking at ${resort} for ${startDate} (${sessionType}) has been cancelled by the host.`,
-                    bookingId: booking.id,
-                    read: false,
-                    createdAt: serverTimestamp(),
-                })
-            }
+        try {
+            const bookingRef = doc(db, 'bookings', booking.id)
+            await updateDoc(bookingRef, { status: 'Cancelled' })
+
+            await addDoc(collection(db, 'notifications'), {
+                userId: booking?.userId || null,
+                userEmail: booking?.userEmail || null,
+                title: 'Booking Cancelled',
+                message: `Your confirmed booking at ${resort} for ${startDate} (${sessionType}) has been cancelled by the host.`,
+                bookingId: booking.id,
+                read: false,
+                createdAt: serverTimestamp(),
+            })
 
             setNotification({
                 type: 'success',
                 message: 'Booking cancelled and notification sent to the guest.',
             })
             onReject?.()
+            return true
         } catch (error) {
             console.error('Error cancelling booking:', error)
             setNotification({
                 type: 'error',
                 message: 'Failed to cancel booking.',
             })
+            return false
         }
     }
+
+    const confirmPendingAction = async () => {
+        if (!pendingAction || submitting) return
+
+        setSubmitting(true)
+        try {
+            const succeeded = pendingAction === 'confirm'
+                ? await handleConfirmBooking()
+                : pendingAction === 'reject'
+                    ? await handleRejectBooking()
+                    : await handleCancelBooking()
+
+            if (succeeded) setPendingAction(null)
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    const actionDetails = {
+        confirm: {
+            title: 'Confirm Booking',
+            message: `Confirm this booking at ${resort} for ${startDate}? Other pending requests for the same time slot will be declined.`,
+            button: 'Confirm Booking',
+        },
+        reject: {
+            title: 'Reject Booking',
+            message: `Are you sure you want to reject this booking request at ${resort} for ${startDate}?`,
+            button: 'Reject Booking',
+        },
+        cancel: {
+            title: 'Cancel Booking',
+            message: `Are you sure you want to cancel the confirmed booking at ${resort} for ${startDate}?`,
+            button: 'Cancel Booking',
+        },
+    }
+
+    const currentAction = pendingAction ? actionDetails[pendingAction] : null
 
     return (
         <section className="host-booking-detailN container-fluid p-3 p-md-4">
@@ -246,7 +302,8 @@ export const HostBookingDetailsN = ({
                         <button
                             type="button"
                             className="btn btn-outline-danger rounded-pill w-100"
-                            onClick={handleCancelBooking}
+                            onClick={() => setPendingAction('cancel')}
+                            disabled={submitting}
                         >
                             Cancel Booking
                         </button>
@@ -257,7 +314,8 @@ export const HostBookingDetailsN = ({
                             <button
                                 type="button"
                                 className="btn host-booking-rejectN rounded-pill w-100"
-                                onClick={handleRejectBooking}
+                                onClick={() => setPendingAction('reject')}
+                                disabled={submitting}
                             >
                                 Reject Booking
                             </button>
@@ -266,7 +324,8 @@ export const HostBookingDetailsN = ({
                             <button
                                 type="button"
                                 className="btn btn-warning rounded-pill w-100"
-                                onClick={handleConfirmBooking}
+                                onClick={() => setPendingAction('confirm')}
+                                disabled={submitting}
                             >
                                 Confirm Booking
                             </button>
@@ -274,6 +333,48 @@ export const HostBookingDetailsN = ({
                     </>
                 ) : null}
             </div>
+
+            <Modal
+                show={Boolean(currentAction)}
+                onHide={() => {
+                    if (!submitting) setPendingAction(null)
+                }}
+                centered
+                dialogClassName="admin-suspend-dialogN"
+                contentClassName="admin-suspend-modalN admin-themed-modalN"
+                aria-labelledby="host-booking-action-title"
+            >
+                <button
+                    type="button"
+                    aria-label="Close"
+                    onClick={() => setPendingAction(null)}
+                    disabled={submitting}
+                >
+                    <i className="bi bi-x-lg" aria-hidden="true" />
+                </button>
+                <Modal.Body className="admin-suspend-bodyN">
+                    <h2 id="host-booking-action-title">{currentAction?.title}</h2>
+                    <p className="mb-4">{currentAction?.message}</p>
+                    <div className="d-flex justify-content-center align-items-center gap-3 mt-4 w-100">
+                        <button
+                            type="button"
+                            className="btn btn-outline-warning px-4"
+                            onClick={() => setPendingAction(null)}
+                            disabled={submitting}
+                        >
+                            Keep Booking
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-warning px-4"
+                            onClick={confirmPendingAction}
+                            disabled={submitting}
+                        >
+                            {submitting ? 'Updating...' : currentAction?.button}
+                        </button>
+                    </div>
+                </Modal.Body>
+            </Modal>
         </section>
     )
 }

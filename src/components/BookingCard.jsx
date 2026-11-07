@@ -1,14 +1,61 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { collection, getDocs } from 'firebase/firestore'
+import { db } from '../firebase'
 
 const peso = (n) =>
     (Number(n) || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })
 
+const toDateKey = (value) => {
+    if (!value) return ''
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+        return value.slice(0, 10)
+    }
+
+    const date = typeof value?.toDate === 'function'
+        ? value.toDate()
+        : value instanceof Date
+            ? value
+            : new Date(value)
+    if (Number.isNaN(date.getTime())) return ''
+
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
+
+const getBookedDates = async (property) => {
+    const snapshot = await getDocs(collection(db, 'bookings'))
+    const propertyName = String(property?.name || '').trim().toLowerCase()
+    const propertyId = property?.id
+    const inactiveStatuses = ['rejected', 'cancelled', 'canceled', 'failed', 'expired']
+
+    return new Set(snapshot.docs.flatMap((bookingDoc) => {
+        const booking = bookingDoc.data()
+        const bookingPropertyId = booking.propertyId || booking.property?.id
+        const bookingPropertyName = String(
+            booking.propertyName ||
+            booking.property?.name ||
+            (typeof booking.resort === 'string' ? booking.resort : '')
+        ).trim().toLowerCase()
+        const matchesProperty = propertyId
+            ? bookingPropertyId === propertyId || (!bookingPropertyId && propertyName && bookingPropertyName === propertyName)
+            : propertyName && bookingPropertyName === propertyName
+        const status = String(booking.status || 'Pending').toLowerCase()
+        const dateKey = toDateKey(booking.date || booking.startDate)
+
+        return matchesProperty && dateKey && !inactiveStatuses.includes(status) ? [dateKey] : []
+    }))
+}
+
 function BookingCard({ cottages = [], resort, property }) {
     const navigate = useNavigate()
     const { currentUser } = useAuth()
-    const today = new Date().toISOString().split('T')[0]
+    const [today] = useState(() => toDateKey(new Date()))
+    const propertyId = property?.id
+    const propertyName = property?.name
 
     const tours = property?.tourSettings || {}
     const defaultBasePrice = Number(property?.price || property?.rate || 15000)
@@ -48,10 +95,64 @@ function BookingCard({ cottages = [], resort, property }) {
     const [guestsCount, setGuestsCount] = useState(property?.capacity || 10)
     const [selectedCottageIds, setSelectedCottageIds] = useState([])
     const [dropdownOpen, setDropdownOpen] = useState(false)
+    const [bookedDates, setBookedDates] = useState(() => new Set())
+    const [availabilityLoading, setAvailabilityLoading] = useState(true)
+    const [availabilityError, setAvailabilityError] = useState('')
+    const [availabilityLoadFailed, setAvailabilityLoadFailed] = useState(false)
+    const [availabilityRefreshToken, setAvailabilityRefreshToken] = useState(0)
+    const [checkingDate, setCheckingDate] = useState(false)
     const dropdownRef = useRef(null)
 
     const currentTour = defaultTours.find(t => t.key === selectedTourKey) || defaultTours[0]
     const tourPrice = Number(currentTour.price) || 0
+
+    useEffect(() => {
+        let isMounted = true
+
+        const loadAvailability = async () => {
+            setAvailabilityLoading(true)
+            setAvailabilityError('')
+            setAvailabilityLoadFailed(false)
+            try {
+                if (!propertyId && !propertyName) {
+                    throw new Error('Property details are unavailable.')
+                }
+
+                const loadedBookedDates = await getBookedDates({ id: propertyId, name: propertyName })
+                if (!isMounted) return
+
+                setBookedDates(loadedBookedDates)
+                const startDate = new Date(`${today}T00:00:00`)
+                let firstAvailableDate = ''
+                for (let offset = 0; offset < 366; offset += 1) {
+                    const candidate = new Date(startDate)
+                    candidate.setDate(startDate.getDate() + offset)
+                    const candidateKey = toDateKey(candidate)
+                    if (!loadedBookedDates.has(candidateKey)) {
+                        firstAvailableDate = candidateKey
+                        break
+                    }
+                }
+
+                setDate((currentDate) => currentDate && !loadedBookedDates.has(currentDate)
+                    ? currentDate
+                    : firstAvailableDate)
+            } catch (error) {
+                console.error('Error loading booked dates:', error)
+                if (isMounted) {
+                    setAvailabilityError('Could not load date availability. Please try again.')
+                    setAvailabilityLoadFailed(true)
+                }
+            } finally {
+                if (isMounted) setAvailabilityLoading(false)
+            }
+        }
+
+        loadAvailability()
+        return () => {
+            isMounted = false
+        }
+    }, [propertyId, propertyName, today, availabilityRefreshToken])
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -98,10 +199,29 @@ function BookingCard({ cottages = [], resort, property }) {
         }
     }
 
-    const handleBook = () => {
+    const handleBook = async () => {
+        if (!date || bookedDates.has(date) || availabilityLoading || availabilityError) return
+
         if (!currentUser) {
             navigate('/login', { state: { returnUrl: window.location.pathname } })
             return
+        }
+
+        setCheckingDate(true)
+        try {
+            const latestBookedDates = await getBookedDates(property)
+            setBookedDates(latestBookedDates)
+            if (latestBookedDates.has(date)) {
+                setDate('')
+                setAvailabilityError('That date has just been booked. Please choose another date.')
+                return
+            }
+        } catch (error) {
+            console.error('Error checking booking availability:', error)
+            setAvailabilityError('Could not verify date availability. Please try again.')
+            return
+        } finally {
+            setCheckingDate(false)
         }
 
         const finalGuestsCount = Number(guestsCount) || 1
@@ -170,9 +290,38 @@ function BookingCard({ cottages = [], resort, property }) {
                     className='booking-input form-control text-white bg-transparent border-secondary'
                     value={date}
                     min={today}
-                    onChange={e => setDate(e.target.value)}
+                    disabled={availabilityLoading || availabilityLoadFailed}
+                    onChange={(event) => {
+                        const selectedDate = event.target.value
+                        if (bookedDates.has(selectedDate)) {
+                            setDate('')
+                            setAvailabilityError('That date is already booked for this resort. Please choose another date.')
+                            return
+                        }
+
+                        setDate(selectedDate)
+                        setAvailabilityError('')
+                    }}
                     style={{ colorScheme: 'dark' }}
                 />
+                {availabilityLoading && <small className='text-white-50'>Checking booked dates...</small>}
+                {availabilityError && (
+                    <small className='d-block text-warning mt-1' aria-live='polite'>
+                        {availabilityError}
+                        {availabilityLoadFailed && (
+                            <>
+                                {' '}
+                                <button
+                                    type='button'
+                                    className='btn btn-link text-warning p-0 align-baseline'
+                                    onClick={() => setAvailabilityRefreshToken((token) => token + 1)}
+                                >
+                                    Retry
+                                </button>
+                            </>
+                        )}
+                    </small>
+                )}
             </div>
 
             <div className='mb-3'>
@@ -258,8 +407,9 @@ function BookingCard({ cottages = [], resort, property }) {
                 type='button'
                 className='book-btn btn btn-warning w-100 rounded-pill py-2 fw-bold text-dark'
                 onClick={handleBook}
+                disabled={!date || bookedDates.has(date) || availabilityLoading || availabilityLoadFailed || checkingDate}
             >
-                Book Now
+                {checkingDate ? 'Checking availability...' : availabilityLoading ? 'Loading dates...' : 'Book Now'}
             </button>
         </div>
     )
